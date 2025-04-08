@@ -53,6 +53,10 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 trai
 CUDA_VISIBLE_DEVICES=0,1,4,5,6,7 torchrun --standalone --nproc_per_node=6 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-NS_heat/ --data=/data/yangchangfan/DiffusionPDE/data/NS_heat-merged/ --cond=0 --arch=ddpmpp --batch=72 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
 
+# MHD
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-MHD/ --data=/data/yangchangfan/DiffusionPDE/data/MHD-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
+
+
 ## Solve Forward Problem
 
 To solve the forward problem with sparse observation on the coefficient (or initial state) space, use, e.g.,
