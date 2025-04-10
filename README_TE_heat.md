@@ -49,27 +49,34 @@ torchrun --standalone --nproc_per_node=3 train.py --outdir=pretrained-darcy-new 
 # TE_heat
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
-
 # TE_heat_scale
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_scale/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat_scale-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
-
 
 # NS_heat
 CUDA_VISIBLE_DEVICES=0,1,4,5,6,7 torchrun --standalone --nproc_per_node=6 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-NS_heat/ --data=/data/yangchangfan/DiffusionPDE/data/NS_heat-merged/ --cond=0 --arch=ddpmpp --batch=72 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
-
 # MHD
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-MHD/ --data=/data/yangchangfan/DiffusionPDE/data/MHD-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
+
+# E_flow
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-E_flow/ --data=/data/yangchangfan/DiffusionPDE/data/E_flow-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
 
 ## Solve Forward Problem
 
 To solve the forward problem with sparse observation on the coefficient (or initial state) space, use, e.g.,
-
+# TE_heat
 ```python
 CUDA_VISIBLE_DEVICES=0 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/TE_heat.yaml
 ```
+# NS_heat
 CUDA_VISIBLE_DEVICES=3 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/NS_heat.yaml
+
+# MHD
+CUDA_VISIBLE_DEVICES=7 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/MHD.yaml
+
+# E_flow
+CUDA_VISIBLE_DEVICES=7 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/E_flow.yaml
 
 ### Solve Inverse Problem
 

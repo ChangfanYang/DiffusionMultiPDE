@@ -4,4 +4,8 @@ from .generate_poisson import generate_poisson
 from .generate_helmholtz import generate_helmholtz
 from .generate_ns_nonbounded import generate_ns_nonbounded
 from .generate_ns_bounded import generate_ns_bounded
+from .generate_TE_heat import generate_TE_heat
 from .generate_TE_heat_validate import generate_TE_heat_validate
+from .generate_NS_heat import generate_NS_heat
+from .generate_MHD import generate_MHD
+from .generate_E_flow import generate_E_flow

@@ -28,83 +28,80 @@ def random_index(k, grid_size, seed=0, device=torch.device('cuda')):
     return mask
 
 
-def identify_mater(poly_GT, device=torch.device('cuda')):
-    mater_iden = torch.zeros(128,128, device=device)
-    polygon = Polygon(poly_GT)
+def identify_mater(circle_params, device=torch.device('cuda')):
 
-    for j in range(128):
-       for k in range(128):
-           x0 = -63.5 + j
-           y0 = -63.5 + k
-           point = Point(x0, y0)  
-           if polygon.contains(point) or polygon.boundary.contains(point):
-                mater_iden[j, k] = 1
-           else:
-                mater_iden[j, k] = -1
+    mater_iden = torch.zeros(128,128, device=device)
+    circle_params = circle_params.squeeze(0)
+    cx, cy, r = map(float, circle_params) 
+    coords = (torch.arange(128, device=device) - 63.5) * 0.001
+    xx, yy = torch.meshgrid(coords, coords, indexing='ij')
+
+    mater_iden = torch.where((xx-cx)**2 + (yy-cy)**2 <= r**2, 1, -1)
+    # in 1, out -1
     return mater_iden
     
 
-def generate_separa_mater(mater, T, poly_GT, mater_iden, device=torch.device('cuda')):
-    f = 4e9
-    k_0 = 2 * np.pi * f / 3e8
-    omega = 2 * np.pi * f
-    q = 1.602
-    miu_r = 1
-    eps_0 = 8.854e-12
-    kB = 8.6173e-5
-    Eg = 1.12
+def generate_separa_PDE_mater(mater_iden, device=torch.device('cuda')):
 
-    sigma_coef_map = torch.where(mater_iden > 1e-5, mater, 0)
-    sigma_map = q * sigma_coef_map * torch.exp(- Eg / (kB * T))   #与T有关
-    sigma_map = torch.where(mater_iden > 1e-5, sigma_map, 1e-7)
-    pho_map = torch.where(mater_iden > 1e-5, 70, mater)
-    eps_r = torch.where(mater_iden > 1e-5, 11.7, 1)
-    K_map = miu_r * k_0**2 * (eps_r - 1j * sigma_map/(omega * eps_0))
+    rho_air = 1.24246
+    rho_copper = 8960
+    Crho_air = 1005.10779
+    Crho_copper = 385
+    kappa_air = 0.02505
+    kappa_copper = 400
 
+    rho = torch.where(mater_iden > 1e-5, rho_copper, rho_air)
+    Crho = torch.where(mater_iden > 1e-5, Crho_copper, Crho_air)
+    kappa = torch.where(mater_iden > 1e-5, kappa_copper, kappa_air)
 
+    rho = rho.t()
+    Crho = Crho.t()
+    kappa = kappa.t()
 
-    scipy.io.savemat('sigma_map.mat', {'sigma_map': sigma_map.cpu().detach().numpy()})
-    scipy.io.savemat('sigma_coef_map.mat', {'sigma_coef_map': sigma_coef_map.cpu().detach().numpy()})
-    scipy.io.savemat('T.mat', {'T': T.cpu().detach().numpy()})
+    # scipy.io.savemat('pho.mat', {'pho': pho.cpu().detach().numpy()})
+    # scipy.io.savemat('Cpho.mat', {'Cpho': Cpho.cpu().detach().numpy()})
+    # scipy.io.savemat('kappa.mat', {'kappa': kappa.cpu().detach().numpy()})
 
-    return sigma_map, pho_map, K_map
+    return rho, Crho, kappa
 
 
-def get_NS_heat_loss(Q_heat, u_u, u_v, T, Q_heat_GT, u_u_GT, u_v_GT, T_GT, Q_heat_mask, u_u_mask, u_v_mask, T_mask, device=torch.device('cuda')):
+def get_NS_heat_loss(Q_heat, u_u, u_v, T, Q_heat_GT, u_u_GT, u_v_GT, T_GT, Q_heat_mask, u_u_mask, u_v_mask, T_mask, mater_iden, device=torch.device('cuda')):
     """Return the loss of the NS_heat equation and the observation loss."""
-    # sigma, pho, K_E = generate_separa_mater_NS(mater, T, poly_GT, mater_iden)
 
-    # delta_x = 1e-3 # 1mm
-    # delta_y = 1e-3 # 1mm
+    rho, Crho, kappa = generate_separa_PDE_mater(mater_iden)
+
+    delta_x = 1 # 1m
+    delta_y = 1 # 1m
     
-    # deriv_x = torch.tensor([[1, 0, -1]], dtype=torch.float64, device=device).view(1, 1, 1, 3) / (2 * delta_x)
-    # deriv_y = torch.tensor([[1], [0], [-1]], dtype=torch.float64, device=device).view(1, 1, 3, 1) / (2 * delta_y)
+    deriv_x = torch.tensor([[1, 0, -1]], dtype=torch.float64, device=device).view(1, 1, 1, 3) / (2 * delta_x)
+    deriv_y = torch.tensor([[1], [0], [-1]], dtype=torch.float64, device=device).view(1, 1, 3, 1) / (2 * delta_y)
 
-    # deriv_x_complex = torch.complex(deriv_x, torch.zeros_like(deriv_x))
-    # deriv_y_complex = torch.complex(deriv_y, torch.zeros_like(deriv_y))
+    # Continuity_NS
+    grad_x_next_x_NS = F.conv2d(u_u, deriv_x, padding=(0, 1))
+    grad_x_next_y_NS = F.conv2d(u_v, deriv_y, padding=(1, 0))
+    result_NS = grad_x_next_x_NS + grad_x_next_y_NS
 
-    # # E_filed
-    # grad_x_next_x_E = F.conv2d(Ez, deriv_x_complex, padding=(0, 1))
-    # grad_x_next_y_E = F.conv2d(Ez, deriv_y_complex, padding=(1, 0))
-    # Laplac_E = F.conv2d(grad_x_next_x_E, deriv_x_complex, padding=(0, 1)) + F.conv2d(grad_x_next_y_E, deriv_y_complex, padding=(1, 0))
-    # result_E = Laplac_E + K_E * Ez
-    # # T_filed
-    # grad_x_next_x_T = F.conv2d(T, deriv_x, padding=(0, 1))
-    # grad_x_next_y_T = F.conv2d(T, deriv_y, padding=(1, 0))
-    # Laplac_T = F.conv2d(grad_x_next_x_T, deriv_x, padding=(0, 1)) + F.conv2d(grad_x_next_y_T, deriv_y, padding=(1, 0))
-    # result_T = pho * Laplac_T + 0.5 * sigma * Ez * torch.conj(Ez)
+    # T_filed
+    grad_x_next_x_T = F.conv2d(T, deriv_x, padding=(0, 1))
+    grad_x_next_y_T = F.conv2d(T, deriv_y, padding=(1, 0))
+    Laplac_T = F.conv2d(grad_x_next_x_T, deriv_x, padding=(0, 1)) + F.conv2d(grad_x_next_y_T, deriv_y, padding=(1, 0))
 
-    pde_loss_NS = 0
-    pde_loss_heat = 0
-
-    # pde_loss_NS = pde_loss_NS.squeeze()
-    # pde_loss_heat = pde_loss_heat.squeeze()
+    result_heat = rho * Crho * (u_u * grad_x_next_x_T + u_v * grad_x_next_y_T) - kappa * Laplac_T
     
-    # scipy.io.savemat('pde_loss_NS.mat', {'pde_loss_NS': pde_loss_NS.cpu().detach().numpy()})
-    # scipy.io.savemat('pde_loss_heat.mat', {'pde_loss_heat': pde_loss_heat.cpu().detach().numpy()})
-    # scipy.io.savemat('result_E.mat', {'result_E': result_E.cpu().detach().numpy()})
-    # scipy.io.savemat('Laplac_E.mat', {'Laplac_E': Laplac_E.cpu().detach().numpy()})
-    # scipy.io.savemat('result_T.mat', {'result_T': result_T.cpu().detach().numpy()})
+    pde_loss_NS = result_NS
+    pde_loss_heat = result_heat
+
+    pde_loss_NS = pde_loss_NS.squeeze()
+    pde_loss_heat = pde_loss_heat.squeeze()
+    
+
+    scipy.io.savemat('test_rho.mat', {'rho': rho.cpu().detach().numpy()})
+    scipy.io.savemat('test_Crho.mat', {'Crho': Crho.cpu().detach().numpy()})
+    scipy.io.savemat('test_kappa.mat', {'kappa': kappa.cpu().detach().numpy()})
+    scipy.io.savemat('test_Laplac_T.mat', {'Laplac_T': Laplac_T.cpu().detach().numpy()})
+    scipy.io.savemat('test_Q_heat.mat', {'Q_heat': Q_heat.cpu().detach().numpy()})
+    scipy.io.savemat('test_u_u.mat', {'u_u': u_u.cpu().detach().numpy()})
+    scipy.io.savemat('test_u_v.mat', {'u_u': u_v.cpu().detach().numpy()})
 
 
     observation_loss_Q_heat = (Q_heat - Q_heat_GT).squeeze()
@@ -118,6 +115,7 @@ def get_NS_heat_loss(Q_heat, u_u, u_v, T, Q_heat_GT, u_u_GT, u_v_GT, T_GT, Q_hea
 
     return pde_loss_NS, pde_loss_heat, observation_loss_Q_heat, observation_loss_u_u, observation_loss_u_v, observation_loss_T
 
+
 def generate_NS_heat(config):
     """Generate NS_heat equation."""
     ############################ Load data and network ############################
@@ -127,7 +125,6 @@ def generate_NS_heat(config):
 
     Q_heat_GT_path = os.path.join(datapath, "Q_heat", f"{offset}.mat")
     # print(Q_heat_GT_path)
-
     Q_heat_GT = sio.loadmat(Q_heat_GT_path)['export_Q_heat']
     Q_heat_GT = torch.tensor(Q_heat_GT, dtype=torch.float64, device=device)
 
@@ -143,6 +140,10 @@ def generate_NS_heat(config):
     T_GT = sio.loadmat(T_GT_path)['export_T']
     T_GT = torch.tensor(T_GT, dtype=torch.float64, device=device)
     
+    circle_GT_path = os.path.join(datapath, "circlecsv", f"{offset}.csv")
+    circle_GT = pd.read_csv(circle_GT_path, header=None)
+    circle_GT = torch.tensor(circle_GT.values, dtype=torch.float64)
+
     batch_size = config['generate']['batch_size']
     seed = config['generate']['seed']
     torch.manual_seed(seed)
@@ -199,6 +200,8 @@ def generate_NS_heat(config):
         u_v_N = x_N[:,2,:,:].unsqueeze(0)
         T_N = x_N[:,3,:,:].unsqueeze(0)
 
+        circle_iden = identify_mater(circle_GT)
+
         # inv_normalization
         range_allQ_heat_paths = "/data/yangchangfan/DiffusionPDE/data/training/NS_heat/Q_heat/range_allQ_heat.mat"
         range_allQ_heat = sio.loadmat(range_allQ_heat_paths)['range_allQ_heat']
@@ -236,28 +239,27 @@ def generate_NS_heat(config):
 
         # Compute the loss
 
-        pde_loss_NS, pde_loss_heat, observation_loss_Q_heat, observation_loss_u_u, observation_loss_u_v, observation_loss_T = get_NS_heat_loss(Q_heat_N, u_u_N, u_v_N, T_N, Q_heat_GT, u_u_GT, u_v_GT, T_GT, known_index_Q_heat, known_index_u_u, known_index_u_v, known_index_T, device=device)
+        pde_loss_NS, pde_loss_heat, observation_loss_Q_heat, observation_loss_u_u, observation_loss_u_v, observation_loss_T = get_NS_heat_loss(Q_heat_N, u_u_N, u_v_N, T_N, Q_heat_GT, u_u_GT, u_v_GT, T_GT, known_index_Q_heat, known_index_u_u, known_index_u_v, known_index_T, circle_iden, device=device)
         
-        # L_pde_NS = torch.norm(pde_loss_NS, 2)/(128*128)
-        # L_pde_heat = torch.norm(pde_loss_heat, 2)/(128*128)
-        
+        L_pde_NS = torch.norm(pde_loss_NS, 2)/(128*128)
+        L_pde_heat = torch.norm(pde_loss_heat, 2)/(128*128)
 
         L_obs_Q_heat = torch.norm(observation_loss_Q_heat, 2)/500
         L_obs_u_u = torch.norm(observation_loss_u_u, 2)/500
         L_obs_u_v = torch.norm(observation_loss_u_v, 2)/500
         L_obs_T = torch.norm(observation_loss_T, 2)/500
 
-        # print(L_pde)
-        # print(L_obs_mater)
-        # print(L_obs_Ez)
-        # print(L_obs_T)
+        print(L_pde_NS)
+        print(L_pde_heat)
+        print(L_obs_Q_heat)
+        print(L_obs_T)
 
         output_file_path = "inference_losses.jsonl"
         if i % 5 == 0:
             log_entry = {
               "step": i,
-            #   "L_pde_NS": L_pde_NS.tolist(),
-            #   "L_pde_heat": L_pde_heat.tolist(),
+              "L_pde_NS": L_pde_NS.tolist(),
+              "L_pde_heat": L_pde_heat.tolist(),
                "L_obs_Q_heat": L_obs_Q_heat.tolist(),
                "L_obs_u_u": L_obs_u_u.tolist(),
                "L_obs_u_v": L_obs_u_v.tolist(),
@@ -271,8 +273,8 @@ def generate_NS_heat(config):
         grad_x_cur_obs_u_u = torch.autograd.grad(outputs=L_obs_u_u, inputs=x_cur, retain_graph=True)[0]
         grad_x_cur_obs_u_v = torch.autograd.grad(outputs=L_obs_u_v, inputs=x_cur, retain_graph=True)[0]
         grad_x_cur_obs_T = torch.autograd.grad(outputs=L_obs_T, inputs=x_cur, retain_graph=True)[0]
-        # grad_x_cur_pde_NS = torch.autograd.grad(outputs=L_pde_NS, inputs=x_cur, retain_graph=True)[0]
-        # grad_x_cur_pde_heat = torch.autograd.grad(outputs=L_pde_heat, inputs=x_cur)[0]
+        grad_x_cur_pde_NS = torch.autograd.grad(outputs=L_pde_NS, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_pde_heat = torch.autograd.grad(outputs=L_pde_heat, inputs=x_cur)[0]
 
         # zeta_obs_mater = config['generate']['zeta_obs_mater']
         # zeta_obs_Ez = config['generate']['zeta_obs_Ez']
@@ -283,8 +285,8 @@ def generate_NS_heat(config):
         zeta_obs_u_u = 10
         zeta_obs_u_v = 10
         zeta_obs_T = 10
-        # zeta_pde_NS = 10
-        # zeta_pde_heat = 10
+        zeta_pde_NS = 10
+        zeta_pde_heat = 10
 
     # scale zeta
         norm_Q_heat = torch.norm(zeta_obs_Q_heat * grad_x_cur_obs_Q_heat)
@@ -304,7 +306,7 @@ def generate_NS_heat(config):
         zeta_obs_T = zeta_obs_T * scale_factor
         
 
-        if i <= 1 * num_steps:
+        if i <= 0.9 * num_steps:
             x_next = x_next - zeta_obs_Q_heat * grad_x_cur_obs_Q_heat - zeta_obs_u_u * grad_x_cur_obs_u_u - zeta_obs_u_v * grad_x_cur_obs_u_v - zeta_obs_T * grad_x_cur_obs_T
       
             # norm_value = torch.norm(zeta_obs_Q_heat * grad_x_cur_obs_Q_heat).item()
@@ -324,7 +326,7 @@ def generate_NS_heat(config):
 
             # x_next = x_next - 0.1 * (zeta_obs_mater * grad_x_cur_obs_mater + zeta_obs_Ez * grad_x_cur_obs_Ez + zeta_obs_T * grad_x_cur_obs_T) - zeta_pde_E * grad_x_cur_pde_E - zeta_pde_T * grad_x_cur_pde_T
 
-            x_next = x_next - 0.8*(zeta_obs_Q_heat * grad_x_cur_obs_Q_heat + zeta_obs_u_u * grad_x_cur_obs_u_u + zeta_obs_u_v * grad_x_cur_obs_u_v + zeta_obs_T * grad_x_cur_obs_T) - 0.2* (zeta_pde_NS * grad_x_cur_pde_NS + zeta_pde_heat * grad_x_cur_pde_heat)
+            x_next = x_next - 0.1*(zeta_obs_Q_heat * grad_x_cur_obs_Q_heat + zeta_obs_u_u * grad_x_cur_obs_u_u + zeta_obs_u_v * grad_x_cur_obs_u_v + zeta_obs_T * grad_x_cur_obs_T) - 1* (zeta_pde_NS * grad_x_cur_pde_NS + zeta_pde_heat * grad_x_cur_pde_heat)
 
 
             # norm_value = torch.norm(zeta_pde_NS * grad_x_cur_pde_NS).item()

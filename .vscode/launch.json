@@ -2,18 +2,18 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Test TE_heat",
+            "name": "Python: Test MHD",
             "type": "debugpy",
             "request": "launch",
             "program": "/home/yangchangfan/CODE/DiffusionPDE/generate_pde.py",
             "console": "integratedTerminal",
             "args": [
    
-                    "--config", "/home/yangchangfan/CODE/DiffusionPDE/configs/TE_heat.yaml"
+                    "--config", "/home/yangchangfan/CODE/DiffusionPDE/configs/MHD.yaml"
             ],
             "env": {
                 "PYTHONUNBUFFERED": "1",
-                "CUDA_VISIBLE_DEVICES": "7"
+                "CUDA_VISIBLE_DEVICES": "6"
             }
         }
     ]
