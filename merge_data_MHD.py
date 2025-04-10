@@ -32,14 +32,14 @@ range_allJx = sio.loadmat(range_allJx_paths)['range_allJx']
 max_Jx = range_allJx[0,1]
 min_Jx = range_allJx[0,0]
 
-# load max_Jx min_Jy
+# load max_Jy min_Jy
 range_allJy_paths = "/data/yangchangfan/DiffusionPDE/data/training/MHD/Jy/range_allJy.mat"
 range_allJy = sio.loadmat(range_allJy_paths)['range_allJy']
 
 max_Jy = range_allJy[0,1]
 min_Jy = range_allJy[0,0]
 
-# load max_Jx min_Jz
+# load max_Jz min_Jz
 range_allJz_paths = "/data/yangchangfan/DiffusionPDE/data/training/MHD/Jz/range_allJz.mat"
 range_allJz = sio.loadmat(range_allJz_paths)['range_allJz']
 

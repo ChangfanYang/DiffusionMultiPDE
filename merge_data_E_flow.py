@@ -3,7 +3,7 @@ import os
 import scipy.io as sio
 
 
-output_base_path = "/data/yangchangfan/DiffusionPDE/data/MHD-merged/merge_{}.npy"
+output_base_path = "/data/yangchangfan/DiffusionPDE/data/E_flow-merged/merge_{}.npy"
 # Create the output directory if it doesn't exist
 os.makedirs(os.path.dirname(output_base_path), exist_ok=True)
 
@@ -14,103 +14,77 @@ start_time = time.time()
 number = 10000
 
 
-# input Br
-# load max_Br  min_Br
-range_allBr_paths = "/data/yangchangfan/DiffusionPDE/data/training/MHD/Br/range_allBr.mat"
-range_allBr = sio.loadmat(range_allBr_paths)['range_allBr']
+# input kappa
+# load max_kappa  min_kappa
+range_allkappa_paths = "/data/yangchangfan/DiffusionPDE/data/training/E_flow/kappa/range_allkappa.mat"
+range_allkappa = sio.loadmat(range_allkappa_paths)['range_allkappa']
 
-max_Br = range_allBr[0,1]
-min_Br = range_allBr[0,0]
+max_kappa = range_allkappa[0,1]
+min_kappa = range_allkappa[0,0]
 
 
-# output Jx, Jy, Jz, u_u, u_v
+# output ec_V, u_flow, v_flow
 
-# load max_Jx min_Jx
-range_allJx_paths = "/data/yangchangfan/DiffusionPDE/data/training/MHD/Jx/range_allJx.mat"
-range_allJx = sio.loadmat(range_allJx_paths)['range_allJx']
+# load max_ec_V min_ec_V
+range_allec_V_paths = "/data/yangchangfan/DiffusionPDE/data/training/E_flow/ec_V/range_allec_V.mat"
+range_allec_V = sio.loadmat(range_allec_V_paths)['range_allec_V']
 
-max_Jx = range_allJx[0,1]
-min_Jx = range_allJx[0,0]
+max_ec_V = range_allec_V[0,1]
+min_ec_V = range_allec_V[0,0]
 
-# load max_Jx min_Jy
-range_allJy_paths = "/data/yangchangfan/DiffusionPDE/data/training/MHD/Jy/range_allJy.mat"
-range_allJy = sio.loadmat(range_allJy_paths)['range_allJy']
+# load max_u_flow min_u_flow
+range_allu_flow_paths = "/data/yangchangfan/DiffusionPDE/data/training/E_flow/u_flow/range_allu_flow.mat"
+range_allu_flow = sio.loadmat(range_allu_flow_paths)['range_allu_flow']
 
-max_Jy = range_allJy[0,1]
-min_Jy = range_allJy[0,0]
+max_u_flow = range_allu_flow[0,1]
+min_u_flow = range_allu_flow[0,0]
 
-# load max_Jx min_Jz
-range_allJz_paths = "/data/yangchangfan/DiffusionPDE/data/training/MHD/Jz/range_allJz.mat"
-range_allJz = sio.loadmat(range_allJz_paths)['range_allJz']
+# load max_v_flow min_v_flow
+range_allv_flow_paths = "/data/yangchangfan/DiffusionPDE/data/training/E_flow/v_flow/range_allv_flow.mat"
+range_allv_flow = sio.loadmat(range_allv_flow_paths)['range_allv_flow']
 
-max_Jz = range_allJz[0,1]
-min_Jz = range_allJz[0,0]
-
-# load max_u_u min_u_u
-range_allu_u_paths = "/data/yangchangfan/DiffusionPDE/data/training/MHD/u_u/range_allu_u.mat"
-range_allu_u = sio.loadmat(range_allu_u_paths)['range_allu_u']
-
-max_u_u = range_allu_u[0,1]
-min_u_u = range_allu_u[0,0]
-
-# load max_u_v min_u_v
-range_allu_v_paths = "/data/yangchangfan/DiffusionPDE/data/training/MHD/u_v/range_allu_v.mat"
-range_allu_v = sio.loadmat(range_allu_v_paths)['range_allu_v']
-
-max_u_v = range_allu_v[0,1]
-min_u_v = range_allu_v[0,0]
+max_v_flow = range_allv_flow[0,1]
+min_v_flow = range_allv_flow[0,0]
 
 
 # nomalization
 for i in range(number):
-    # Br 
-    path_Br = os.path.join(f"/data/yangchangfan/DiffusionPDE/data/training/MHD/Br/", f'{i+1}.mat')
-    Br = sio.loadmat(path_Br)['export_Br']
-    Br_normalized = (Br - min_Br) / (max_Br - min_Br) * 1.8 - 0.9 # [-0.9,0.9]
+    # kappa 
+    path_kappa = os.path.join(f"/data/yangchangfan/DiffusionPDE/data/training/E_flow/kappa/", f'{i+1}.mat')
+    kappa = sio.loadmat(path_kappa)['export_kappa']
+    kappa_normalized = (kappa - min_kappa) / (max_kappa - min_kappa) * 1.8 - 0.9 # [-0.9,0.9]
 
-    # Jx 
-    path_Jx = os.path.join(f"/data/yangchangfan/DiffusionPDE/data/training/MHD/Jx/", f'{i+1}.mat')
-    Jx = sio.loadmat(path_Jx)['export_Jx']
-    Jx_normalized = (Jx - min_Jx) / (max_Jx - min_Jx) * 1.8 - 0.9 # [-0.9,0.9]
+    # ec_V
+    path_ec_V = os.path.join(f"/data/yangchangfan/DiffusionPDE/data/training/E_flow/ec_V/", f'{i+1}.mat')
+    ec_V = sio.loadmat(path_ec_V)['export_ec_V']
+    ec_V_normalized = (ec_V - min_ec_V) / (max_ec_V - min_ec_V) * 1.8 - 0.9 # [-0.9,0.9]
 
-    # Jy 
-    path_Jy = os.path.join(f"/data/yangchangfan/DiffusionPDE/data/training/MHD/Jy/", f'{i+1}.mat')
-    Jy = sio.loadmat(path_Jy)['export_Jy']
-    Jy_normalized = (Jy - min_Jy) / (max_Jy - min_Jy) * 1.8 - 0.9 # [-0.9,0.9]
+    # u_flow
+    path_u_flow = os.path.join(f"/data/yangchangfan/DiffusionPDE/data/training/E_flow/u_flow/", f'{i+1}.mat')
+    u_flow = sio.loadmat(path_u_flow)['export_u_flow']
+    u_flow_normalized = (u_flow - min_u_flow) / (max_u_flow - min_u_flow) * 1.8 - 0.9 # [-0.9,0.9]
 
-    # Jz 
-    path_Jz = os.path.join(f"/data/yangchangfan/DiffusionPDE/data/training/MHD/Jz/", f'{i+1}.mat')
-    Jz = sio.loadmat(path_Jz)['export_Jz']
-    Jz_normalized = (Jz - min_Jz) / (max_Jz - min_Jz) * 1.8 - 0.9 # [-0.9,0.9]
-
-    # u_u
-    path_u_u = os.path.join(f"/data/yangchangfan/DiffusionPDE/data/training/MHD/u_u/", f'{i+1}.mat')
-    u_u = sio.loadmat(path_u_u)['export_u']
-    u_u_normalized = (u_u - min_u_u) / (max_u_u - min_u_u) * 1.8 - 0.9 # [-0.9,0.9]
-
-    # u_v
-    path_u_v = os.path.join(f"/data/yangchangfan/DiffusionPDE/data/training/MHD/u_v/", f'{i+1}.mat')
-    u_v = sio.loadmat(path_u_v)['export_v']
-    u_v_normalized = (u_v - min_u_v) / (max_u_v - min_u_v) * 1.8 - 0.9 # [-0.9,0.9]
+    # v_flow
+    path_v_flow = os.path.join(f"/data/yangchangfan/DiffusionPDE/data/training/E_flow/v_flow/", f'{i+1}.mat')
+    v_flow = sio.loadmat(path_v_flow)['export_v_flow']
+    v_flow_normalized = (v_flow - min_v_flow) / (max_v_flow - min_v_flow) * 1.8 - 0.9 # [-0.9,0.9]
 
 
     # Combine them into a new array with a shape [H, W, 4]
-    combined = np.stack((Br_normalized, Jx_normalized, Jy_normalized, Jz_normalized, u_u_normalized, u_v_normalized), axis=-1)
+    combined = np.stack((kappa_normalized, ec_V_normalized, u_flow_normalized, v_flow_normalized), axis=-1)
 
     # Save the combined array to a new .npy file
     output_file_path = output_base_path.format(i+1)
     np.save(output_file_path, combined)
 
-    assert combined.shape == (128, 128, 6)
+    assert combined.shape == (128, 128, 4)
     if i % 200 == 0:
       print(f"Saved combined array for index {i} to {output_file_path}")
       print("Min:", combined.min(), "Max:", combined.max())
-      # print("Br Min:", Br_normalized.min(), "Max:", Br_normalized.max())
-      # print("Jx Min:", Jx_normalized.min(), "Max:", Jx_normalized.max())
-      # print("Jy Min:", Jy_normalized.min(), "Max:", Jy_normalized.max())
-      # print("Jz Min:", Jz_normalized.min(), "Max:", Jz_normalized.max())
-      # print("u_u Min:", u_u_normalized.min(), "Max:", u_u_normalized.max())
-      # print("u_v Min:", u_v_normalized.min(), "Max:", u_v_normalized.max())
+      # print("kappa Min:", kappa_normalized.min(), "Max:", kappa_normalized.max())
+      # print("ec_V Min:", ec_V_normalized.min(), "Max:", ec_V_normalized.max())
+      # print("u_flow Min:", u_flow_normalized.min(), "Max:", u_flow_normalized.max())
+      # print("v_flow Min:", v_flow_normalized.min(), "Max:", v_flow_normalized.max())
 
 
 print("Finished processing all files.")
