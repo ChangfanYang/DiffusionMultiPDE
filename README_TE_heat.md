@@ -81,6 +81,9 @@ CUDA_VISIBLE_DEVICES=7 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python
 # E_flow
 CUDA_VISIBLE_DEVICES=0 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/E_flow.yaml
 
+# VA
+CUDA_VISIBLE_DEVICES=1 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/VA.yaml
+
 ### Solve Inverse Problem
 
 To solve the inverse problem with sparse observation on the solution (or final state) space, use, e.g.,
