@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Test E_flow",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/yangchangfan/CODE/DiffusionPDE/generate_pde.py",
+            "console": "integratedTerminal",
+            "args": [
+   
+                    "--config", "/home/yangchangfan/CODE/DiffusionPDE/configs/E_flow.yaml"
+            ],
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "CUDA_VISIBLE_DEVICES": "7"
+            }
+        }
+    ]
+}

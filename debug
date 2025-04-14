@@ -1,0 +1,54 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Train TE_heat",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/yangchangfan/CODE/DiffusionPDE/train.py",
+            "console": "integratedTerminal",
+            "args": [
+   
+                "--outdir", "/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat/",
+                "--data", "/data/yangchangfan/DiffusionPDE/data/TE_heat-merged/",
+                "--cond", "0",
+                "--arch", "ddpmpp",
+                "--batch", "1",
+                "--batch-gpu", "1",
+                "--tick", "10",
+                "--snap", "50",
+                "--dump", "100",
+                "--duration", "0.0005",
+                "--ema", "0.05"
+            ],
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "CUDA_VISIBLE_DEVICES": "3"
+            }
+        }
+    ]
+}
+
+
+
+
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Test E_flow",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/yangchangfan/CODE/DiffusionPDE/generate_pde.py",
+            "console": "integratedTerminal",
+            "args": [
+   
+                    "--config", "/home/yangchangfan/CODE/DiffusionPDE/configs/E_flow.yaml"
+            ],
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "CUDA_VISIBLE_DEVICES": "7"
+            }
+        }
+    ]
+}
