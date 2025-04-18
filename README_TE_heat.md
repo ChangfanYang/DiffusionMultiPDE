@@ -62,7 +62,10 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 trai
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-E_flow/ --data=/data/yangchangfan/DiffusionPDE/data/E_flow-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
 # VA
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-VA/ --data=/data/yangchangfan/DiffusionPDE/data/VA-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
+CUDA_VISIBLE_DEVICES=3,4,5,6,7 torchrun --standalone --nproc_per_node=5 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-VA/ --data=/data/yangchangfan/DiffusionPDE/data/VA-merged/ --cond=0 --arch=ddpmpp --batch=60 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
+
+# Elder
+CUDA_VISIBLE_DEVICES=1,2,3,4,5,6 torchrun --standalone --nproc_per_node=5 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-Elder/ --data=/data/yangchangfan/DiffusionPDE/data/Elder-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
 
 ## Solve Forward Problem

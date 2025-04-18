@@ -10,7 +10,7 @@ import scipy.io
 import os
 import scipy.io as sio
 import pandas as pd
-
+import math
 import numpy as np
 from shapely.geometry import Polygon, Point
 import json
@@ -28,23 +28,39 @@ def random_index(k, grid_size, seed=0, device=torch.device('cuda')):
     return mask
 
 
-def identify_mater(poly_GT, device=torch.device('cuda')):
-    mater_iden = torch.zeros(128,128, device=device)
-    polygon = Polygon(poly_GT)
+def identify_mater(elliptic_params, device=torch.device('cuda')):
+
+    # elliptic_params: 椭圆参数，格式为 [长轴, 短轴, 旋转角度（度）]
+    mater_iden = torch.zeros(128, 128, device=device)
+    
+    # 椭圆参数
+    e_a = elliptic_params[0,0]  # 长轴
+    e_b = elliptic_params[0,1]  # 短轴
+    angle = math.radians(elliptic_params[0,2])  # 旋转角度，转换为弧度
+    center_x = 0
+    center_y = 0
 
     for j in range(128):
-       for k in range(128):
-           x0 = -63.5 + j
-           y0 = -63.5 + k
-           point = Point(x0, y0)  
-           if polygon.contains(point) or polygon.boundary.contains(point):
-                mater_iden[j, k] = 1
-           else:
-                mater_iden[j, k] = -1
+        for k in range(128):
+            x0 = -63.5 + j
+            y0 = -63.5 + k
+
+            # 旋转坐标系，将椭圆旋转到标准位置
+            x_rot = (x0 - center_x) * math.cos(angle) + (y0 - center_y) * math.sin(angle)
+            y_rot = -(x0 - center_x) * math.sin(angle) + (y0 - center_y) * math.cos(angle)
+
+            # 判断点是否在椭圆内
+            if (x_rot / e_a) ** 2 + (y_rot / e_b) ** 2 <= 1:
+                mater_iden[j, k] = 1  # 椭圆内部或边界
+            else:
+                mater_iden[j, k] = -1  # 椭圆外部
+    # 保存为 .mat 文件
+    # scipy.io.savemat('mater_iden.mat', {'mater_iden': mater_iden.cpu().detach().numpy()})
     return mater_iden
+
     
 
-def generate_separa_mater(mater, T, poly_GT, mater_iden, device=torch.device('cuda')):
+def generate_separa_mater(mater, T, mater_iden, device=torch.device('cuda')):
     f = 4e9
     k_0 = 2 * np.pi * f / 3e8
     omega = 2 * np.pi * f
@@ -70,10 +86,10 @@ def generate_separa_mater(mater, T, poly_GT, mater_iden, device=torch.device('cu
     return sigma_map, pho_map, K_map
 
 
-def get_TE_heat_loss(mater, Ez, T, mater_GT, Ez_GT, T_GT, poly_GT,mater_mask, Ez_mask, T_mask, mater_iden, device=torch.device('cuda')):
+def get_TE_heat_loss(mater, Ez, T, mater_GT, Ez_GT, T_GT, mater_mask, Ez_mask, T_mask, mater_iden, device=torch.device('cuda')):
     """Return the loss of the TE_heat equation and the observation loss."""
 
-    sigma, pho, K_E = generate_separa_mater(mater, T, poly_GT, mater_iden)
+    sigma, pho, K_E = generate_separa_mater(mater, T, mater_iden)
 
     delta_x = 128/128*1e-3 # 1mm
     delta_y = 128/128*1e-3 # 1mm
@@ -139,9 +155,9 @@ def generate_TE_heat(config):
     T_GT = sio.loadmat(T_GT_path)['export_T']
     T_GT = torch.tensor(T_GT, dtype=torch.float64, device=device)
 
-    poly_GT_path = os.path.join(datapath, "polycsv", f"{offset}.csv")
-    poly_GT = pd.read_csv(poly_GT_path, header=None)
-    poly_GT = torch.tensor(poly_GT.values, dtype=torch.float64)
+    elliptic_GT_path = os.path.join(datapath, "ellipticcsv", f"{offset}.csv")
+    elliptic_GT = pd.read_csv(elliptic_GT_path, header=None)
+    elliptic_GT = torch.tensor(elliptic_GT.values, dtype=torch.float64)
     
     batch_size = config['generate']['batch_size']
     seed = config['generate']['seed']
@@ -198,7 +214,7 @@ def generate_TE_heat(config):
         imag_Ez_N = x_N[:,2,:,:].unsqueeze(0)
         T_N = x_N[:,3,:,:].unsqueeze(0)
 
-        mater_iden = identify_mater(poly_GT)
+        mater_iden = identify_mater(elliptic_GT)
         val_in = ((mater_N - 0.1) * (3e11 - 1e11) / 0.8 + 1e11).to(torch.float64)
         val_out = ((mater_N + 0.9) * (20 - 10) / 0.8 + 10).to(torch.float64)
         mater_N = torch.where(mater_iden > 1e-5, val_in, val_out)
@@ -225,8 +241,7 @@ def generate_TE_heat(config):
         complex_Ez_N = torch.complex(real_Ez_N, imag_Ez_N)
 
         # Compute the loss
-
-        pde_loss_E, pde_loss_T, observation_loss_mater, observation_loss_Ez, observation_loss_T = get_TE_heat_loss(mater_N, complex_Ez_N, T_N, mater_GT, Ez_GT, T_GT, poly_GT, known_index_mater, known_index_Ez, known_index_T,mater_iden, device=device)
+        pde_loss_E, pde_loss_T, observation_loss_mater, observation_loss_Ez, observation_loss_T = get_TE_heat_loss(mater_N, complex_Ez_N, T_N, mater_GT, Ez_GT, T_GT, known_index_mater, known_index_Ez, known_index_T, mater_iden, device=device)
         L_pde_E = torch.norm(pde_loss_E, 2)/(128*128)
         L_pde_T = torch.norm(pde_loss_T, 2)/(128*128)
         

@@ -22,14 +22,14 @@ def random_index(k, grid_size, seed=0, device=torch.device('cuda')):
     indices = np.random.choice(grid_size**2, k, replace=False)
     indices_2d = np.unravel_index(indices, (grid_size, grid_size))
     indices_list = list(zip(indices_2d[0], indices_2d[1]))
-    mask = torch.zeros((grid_size, grid_size), dtype=torch.float32).to(device)
+    mask = torch.zeros((grid_size, grid_size), dtype=torch.float64).to(device)
     for i in indices_list:
         mask[i] = 1
     return mask
 
 
 def normalize(data, min_val, max_val):
-    return (data - min_val) / (max_val - min_val + 1e-10) * 1.8 - 0.9
+    return (data - min_val) / (max_val - min_val ) * 1.8 - 0.9
 
 
 
@@ -52,6 +52,8 @@ def load_ranges(base_path,variables):
             'min_imag': imag_data[0,0]
         }
     
+
+
     return ranges
 
         
@@ -65,8 +67,9 @@ def get_VA_loss(rho_water, p_t_real, p_t_imag, Sxx_real, Sxx_imag, Sxy_real, Sxy
     """Return the loss of the VA equation and the observation loss."""
 
     omega = torch.tensor(np.pi * 1e5, dtype=torch.float64, device=device)
+
     c_ac = 1.48144e3
-    rho_Aluminum = 2730
+    
 
     delta_x = (40/128)*1e-3 # 1mm
     delta_y = (40/128)*1e-3 # 1mm
@@ -90,20 +93,20 @@ def get_VA_loss(rho_water, p_t_real, p_t_imag, Sxx_real, Sxx_imag, Sxy_real, Sxy
     # Continuity_structure real_x imag_x
     grad_x_next_x_Sxx_real = F.conv2d(Sxx_real, deriv_x, padding=(0, 1))
     grad_x_next_y_Sxy_real = F.conv2d(Sxy_real, deriv_y, padding=(1, 0))
-    result_structure_real_x = -grad_x_next_x_Sxx_real - grad_x_next_y_Sxy_real + rho_Aluminum * omega**2 * x_u_real
+    result_structure_real_x = grad_x_next_x_Sxx_real + grad_x_next_y_Sxy_real + x_u_real
     
     grad_x_next_x_Sxx_imag = F.conv2d(Sxx_imag, deriv_x, padding=(0, 1))
     grad_x_next_y_Sxy_imag = F.conv2d(Sxy_imag, deriv_y, padding=(1, 0))
-    result_structure_imag_x = grad_x_next_x_Sxx_imag + grad_x_next_y_Sxy_imag + rho_Aluminum * omega**2 * x_u_imag
+    result_structure_imag_x = grad_x_next_x_Sxx_imag + grad_x_next_y_Sxy_imag + x_u_imag
 
     # Continuity_structure real_y imag_y
     grad_x_next_x_Sxy_real = F.conv2d(Sxy_real, deriv_x, padding=(0, 1))
     grad_x_next_y_Syy_real = F.conv2d(Syy_real, deriv_y, padding=(1, 0))
-    result_structure_real_y = grad_x_next_x_Sxy_real + grad_x_next_y_Syy_real + rho_Aluminum * omega**2 * x_v_real
+    result_structure_real_y = grad_x_next_x_Sxy_real + grad_x_next_y_Syy_real + x_v_real
 
     grad_x_next_x_Sxy_imag = F.conv2d(Sxy_imag, deriv_x, padding=(0, 1))
     grad_x_next_y_Syy_imag = F.conv2d(Syy_imag, deriv_y, padding=(1, 0))
-    result_structure_imag_y = grad_x_next_x_Sxy_imag + grad_x_next_y_Syy_imag + rho_Aluminum * omega**2 * x_v_imag
+    result_structure_imag_y = grad_x_next_x_Sxy_imag + grad_x_next_y_Syy_imag + x_v_imag
 
 
     # scipy.io.savemat('grad_x_next_x_Sxx_real.mat', {'grad_x_next_x_Sxx_real': grad_x_next_x_Sxx_real.cpu().detach().numpy()})
@@ -149,12 +152,12 @@ def get_VA_loss(rho_water, p_t_real, p_t_imag, Sxx_real, Sxx_imag, Sxy_real, Sxy
     # scipy.io.savemat('test_x_u.mat', {'x_u': x_u.cpu().detach().numpy()})
     # scipy.io.savemat('test_x_v.mat', {'x_v': x_v.cpu().detach().numpy()})
 
-    p_t_complex = complex(p_t_real, p_t_imag)
-    Sxx_complex = complex(Sxx_real, Sxx_imag)
-    Sxy_complex = complex(Sxy_real, Sxy_imag)
-    Syy_complex = complex(Syy_real, Syy_imag)
-    x_u_complex = complex(x_u_real, x_u_imag)
-    x_v_complex = complex(x_v_real, x_u_imag)
+    p_t_complex = torch.complex(p_t_real, p_t_imag)
+    Sxx_complex = torch.complex(Sxx_real, Sxx_imag)
+    Sxy_complex = torch.complex(Sxy_real, Sxy_imag)
+    Syy_complex = torch.complex(Syy_real, Syy_imag)
+    x_u_complex = torch.complex(x_u_real, x_u_imag)
+    x_v_complex = torch.complex(x_v_real, x_v_imag)
 
     observation_loss_rho_water = (rho_water - rho_water_GT).squeeze()
     observation_loss_rho_water = observation_loss_rho_water * rho_water_mask  
@@ -170,6 +173,7 @@ def get_VA_loss(rho_water, p_t_real, p_t_imag, Sxx_real, Sxx_imag, Sxy_real, Sxy
     observation_loss_x_u = observation_loss_x_u * x_u_mask  
     observation_loss_x_v = (x_v_complex - x_v_GT).squeeze()
     observation_loss_x_v = observation_loss_x_v * x_v_mask  
+    
 
     return pde_loss_AC_real, pde_loss_AC_imag, pde_loss_structure_real_x, pde_loss_structure_imag_x, pde_loss_structure_real_y, pde_loss_structure_imag_y, observation_loss_rho_water, observation_loss_p_t, observation_loss_Sxx, observation_loss_Sxy, observation_loss_Syy, observation_loss_x_u, observation_loss_x_v
 
@@ -202,13 +206,16 @@ def generate_VA(config):
     Syy_GT = sio.loadmat(Syy_GT_path)['export_Syy']
     Syy_GT = torch.tensor(Syy_GT, dtype=torch.complex128, device=device)
 
+    omega = torch.tensor(np.pi * 1e5, dtype=torch.float64, device=device)
+    rho_Aluminum = 2730
+
     x_u_GT_path = os.path.join(datapath, "x_u", f"{offset}.mat")
     x_u_GT = sio.loadmat(x_u_GT_path)['export_x_u']
-    x_u_GT = torch.tensor(x_u_GT, dtype=torch.complex128, device=device)
+    x_u_GT = rho_Aluminum * omega**2 * torch.tensor(x_u_GT, dtype=torch.complex128, device=device)
 
     x_v_GT_path = os.path.join(datapath, "x_v", f"{offset}.mat")
     x_v_GT = sio.loadmat(x_v_GT_path)['export_x_v']
-    x_v_GT = torch.tensor(x_v_GT, dtype=torch.complex128, device=device)
+    x_v_GT = rho_Aluminum * omega**2 * torch.tensor(x_v_GT, dtype=torch.complex128, device=device)
 
     
     batch_size = config['generate']['batch_size']
@@ -256,6 +263,10 @@ def generate_VA(config):
         
         # Euler step
         x_N = net(x_cur, sigma_t, class_labels=class_labels).to(torch.float64)
+
+        # print("x_N requires grad:", x_N.requires_grad, "grad_fn:", x_N.grad_fn)
+
+
         d_cur = (x_cur - x_N) / sigma_t
         x_next = x_cur + (sigma_t_next - sigma_t) * d_cur
         
@@ -276,24 +287,27 @@ def generate_VA(config):
         real_Syy_N = x_N[:,7,:,:].unsqueeze(0)
         imag_Syy_N = x_N[:,8,:,:].unsqueeze(0)
         real_x_u_N = x_N[:,9,:,:].unsqueeze(0)
-        imag__x_u_N = x_N[:,10,:,:].unsqueeze(0)
-        real_N = x_N[:,11,:,:].unsqueeze(0)
-        imag_N = x_N[:,12,:,:].unsqueeze(0)
+        imag_x_u_N = x_N[:,10,:,:].unsqueeze(0)
+        real_x_v_N = x_N[:,11,:,:].unsqueeze(0)
+        imag_x_v_N = x_N[:,12,:,:].unsqueeze(0)
 
         # inv_normalization
-        range_allrho_water_paths = "/data/yangchangfan/DiffusionPDE/data/training/VA/rho_water/range_allrho_water.mat"
+        range_allrho_water_paths = "/hpcfile/home/connect.yfang870/PDE/DATA/training/VA/rho_water/range_allrho_water.mat"
         range_allrho_water = sio.loadmat(range_allrho_water_paths)['range_allrho_water']
         range_allrho_water = torch.tensor(range_allrho_water, device=device)
         max_rho_water = range_allrho_water[0,1]
         min_rho_water = range_allrho_water[0,0]
 
 
-        base_path = "/data/yangchangfan/DiffusionPDE/data/training/VA"
+        base_path = "/hpcfile/home/connect.yfang870/PDE/DATA/training/VA"
         variables = ['p_t', 'Sxx', 'Sxy', 'Syy', 'x_u', 'x_v']
 
         range_data = load_ranges(base_path,variables)
 
-
+        range_data['x_u']['max_real'] = rho_Aluminum * omega**2 * range_data['x_u']['max_real']
+        range_data['x_u']['max_imag'] = rho_Aluminum * omega**2 * range_data['x_u']['max_imag']
+        range_data['x_v']['max_real'] = rho_Aluminum * omega**2 * range_data['x_v']['max_real']
+        range_data['x_v']['max_imag'] = rho_Aluminum * omega**2 * range_data['x_v']['max_imag']
 
         rho_water_N = ((rho_water_N+0.9)/1.8 *(max_rho_water - min_rho_water) + min_rho_water).to(torch.float64)
         real_p_t_N = ((real_p_t_N+0.9)/1.8 *(range_data['p_t']['max_real'] - range_data['p_t']['min_real']) + range_data['p_t']['min_real']).to(torch.float64)
@@ -328,19 +342,30 @@ def generate_VA(config):
         L_pde_structure_imag_y = torch.norm(pde_loss_structure_imag_y, 2)/(128*128)
         
         L_obs_rho_water = torch.norm(observation_loss_rho_water, 2)/500
-        L_obs_p_t = torch.norm(observation_loss_p_t, 2)/500
-        L_obs_Sxx = torch.norm(observation_loss_Sxx, 2)/500
-        L_obs_Sxy = torch.norm(observation_loss_Sxy, 2)/500
-        L_obs_Syy = torch.norm(observation_loss_Syy, 2)/500
-        L_obs_x_u = torch.norm(observation_loss_x_u, 2)/500
-        L_obs_x_v = torch.norm(observation_loss_x_v, 2)/500
+        L_obs_p_t_real = torch.norm(observation_loss_p_t.real, 2)/500
+        L_obs_p_t_imag = torch.norm(observation_loss_p_t.imag, 2)/500
+        L_obs_Sxx_real = torch.norm(observation_loss_Sxx.real, 2)/500
+        L_obs_Sxx_imag = torch.norm(observation_loss_Sxx.imag, 2)/500
+        L_obs_Sxy_real = torch.norm(observation_loss_Sxy.real, 2)/500
+        L_obs_Sxy_imag = torch.norm(observation_loss_Sxy.imag, 2)/500
+        L_obs_Syy_real = torch.norm(observation_loss_Syy.real, 2)/500
+        L_obs_Syy_imag = torch.norm(observation_loss_Syy.imag, 2)/500
+        L_obs_x_u_real = torch.norm(observation_loss_x_u.real, 2)/500
+        L_obs_x_u_imag = torch.norm(observation_loss_x_u.imag, 2)/500
+        L_obs_x_v_real = torch.norm(observation_loss_x_v.real, 2)/500
+        L_obs_x_v_imag = torch.norm(observation_loss_x_v.imag, 2)/500
 
-        print(L_pde_AC_real)
-        print(L_pde_AC_imag)
-        print(L_pde_structure_real_x)
-        print(L_pde_structure_imag_x)
-        print(L_pde_structure_real_y)
-        print(L_pde_structure_imag_y)
+        
+        print(L_obs_x_u_real)
+        print(L_obs_x_u_imag)
+
+
+        # print(L_pde_AC_real)
+        # print(L_pde_AC_imag)
+        # print(L_pde_structure_real_x)
+        # print(L_pde_structure_imag_x)
+        # print(L_pde_structure_real_y)
+        # print(L_pde_structure_imag_y)
 
 
         output_file_path = "inference_losses.jsonl"
@@ -355,30 +380,39 @@ def generate_VA(config):
               "L_pde_structure_imag_y": L_pde_structure_imag_y.tolist(),
 
                "L_obs_rho_water": L_obs_rho_water.tolist(),
-               "L_obs_p_t": L_obs_p_t.tolist(),
-               "L_obs_Sxx": L_obs_Sxx.tolist(),
-               "L_obs_Sxy": L_obs_Sxy.tolist(),
-               "L_obs_Syy": L_obs_Syy.tolist(),
-               "L_obs_x_u": L_obs_x_u.tolist(),
-               "L_obs_x_v": L_obs_x_v.tolist(),              
+               "L_obs_p_t_real": L_obs_p_t_real.tolist(),
+               "L_obs_p_t_imag": L_obs_p_t_imag.tolist(),
+               "L_obs_Sxx_real": L_obs_Sxx_real.tolist(),
+               "L_obs_Sxx_imag": L_obs_Sxx_imag.tolist(),
+               "L_obs_Sxy_real": L_obs_Sxy_real.tolist(),
+               "L_obs_Sxy_imag": L_obs_Sxy_imag.tolist(),
+               "L_obs_Syy_real": L_obs_Syy_real.tolist(),
+               "L_obs_Syy_imag": L_obs_Syy_imag.tolist(),
+               "L_obs_x_u_real": L_obs_x_u_real.tolist(),
+               "L_obs_x_u_imag": L_obs_x_u_imag.tolist(),
+               "L_obs_x_v_real": L_obs_x_v_real.tolist(),             
+               "L_obs_x_v_imag": L_obs_x_v_imag.tolist(),    
            }
             with open(output_file_path, "a") as file:
                 json.dump(log_entry, file)
                 file.write("\n")  
 
+
+        # print(x_cur.requires_grad, x_cur.grad_fn)
+        # exit()
         grad_x_cur_obs_rho_water = torch.autograd.grad(outputs=L_obs_rho_water, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_p_t_real = torch.autograd.grad(outputs=L_obs_p_t.real, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_p_t_imag = torch.autograd.grad(outputs=L_obs_p_t.imag, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_Sxx_real = torch.autograd.grad(outputs=L_obs_Sxx.real, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_Sxx_imag = torch.autograd.grad(outputs=L_obs_Sxx.imag, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_Sxy_real = torch.autograd.grad(outputs=L_obs_Sxy.real, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_Sxy_imag = torch.autograd.grad(outputs=L_obs_Sxy.imag, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_Syy_real = torch.autograd.grad(outputs=L_obs_Syy.real, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_Syy_imag = torch.autograd.grad(outputs=L_obs_Syy.imag, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_x_u_real = torch.autograd.grad(outputs=L_obs_x_u.real, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_x_u_imag = torch.autograd.grad(outputs=L_obs_x_u.imag, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_x_v_real = torch.autograd.grad(outputs=L_obs_x_v.real, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_x_v_imag = torch.autograd.grad(outputs=L_obs_x_v.imag, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_p_t_real = torch.autograd.grad(outputs=L_obs_p_t_real, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_p_t_imag = torch.autograd.grad(outputs=L_obs_p_t_imag, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_Sxx_real = torch.autograd.grad(outputs=L_obs_Sxx_real, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_Sxx_imag = torch.autograd.grad(outputs=L_obs_Sxx_imag, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_Sxy_real = torch.autograd.grad(outputs=L_obs_Sxy_real, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_Sxy_imag = torch.autograd.grad(outputs=L_obs_Sxy_imag, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_Syy_real = torch.autograd.grad(outputs=L_obs_Syy_real, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_Syy_imag = torch.autograd.grad(outputs=L_obs_Syy_imag, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_x_u_real = torch.autograd.grad(outputs=L_obs_x_u_real, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_x_u_imag = torch.autograd.grad(outputs=L_obs_x_u_imag, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_x_v_real = torch.autograd.grad(outputs=L_obs_x_v_real, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_x_v_imag = torch.autograd.grad(outputs=L_obs_x_v_imag, inputs=x_cur, retain_graph=True)[0]
 
 
         grad_x_cur_pde_AC_real = torch.autograd.grad(outputs=L_pde_AC_real, inputs=x_cur, retain_graph=True)[0]
@@ -453,18 +487,18 @@ def generate_VA(config):
         scale_factor = 1.0 / norm_x_u_real
         zeta_obs_x_u_real = zeta_obs_x_u_real * scale_factor
         norm_x_u_imag = torch.norm(zeta_obs_x_u_imag * grad_x_cur_obs_x_u_imag)
-        scale_factor = 1.0 / norm_x_u_imag
+        scale_factor = 10.0 / norm_x_u_imag
         zeta_obs_x_u_imag = zeta_obs_x_u_imag * scale_factor
 
         norm_x_v_real = torch.norm(zeta_obs_x_v_real * grad_x_cur_obs_x_v_real)
         scale_factor = 1.0 / norm_x_v_real
         zeta_obs_x_v_real = zeta_obs_x_v_real * scale_factor
         norm_x_v_imag = torch.norm(zeta_obs_x_v_imag * grad_x_cur_obs_x_v_imag)
-        scale_factor = 1.0 / norm_x_v_imag
+        scale_factor = 10.0 / norm_x_v_imag
         zeta_obs_x_v_imag = zeta_obs_x_v_imag * scale_factor
+        
 
-
-        if i <= 1 * num_steps:
+        if i <= 0.8 * num_steps:
             x_next = (x_next - zeta_obs_rho_water * grad_x_cur_obs_rho_water - zeta_obs_p_t_real * grad_x_cur_obs_p_t_real 
                     - zeta_obs_p_t_imag * grad_x_cur_obs_p_t_imag - zeta_obs_Sxx_real * grad_x_cur_obs_Sxx_real
                     - zeta_obs_Sxx_imag * grad_x_cur_obs_Sxx_imag - zeta_obs_Sxy_real * grad_x_cur_obs_Sxy_real
@@ -472,7 +506,22 @@ def generate_VA(config):
                     - zeta_obs_Syy_imag * grad_x_cur_obs_Syy_imag - zeta_obs_x_u_real * grad_x_cur_obs_x_u_real
                     - zeta_obs_x_u_imag * grad_x_cur_obs_x_u_imag - zeta_obs_x_v_real * grad_x_cur_obs_x_v_real
                     - zeta_obs_x_v_imag * grad_x_cur_obs_x_v_imag)
-      
+            
+
+
+            # x_next = (x_next - zeta_obs_rho_water * grad_x_cur_obs_rho_water - zeta_obs_p_t_real * grad_x_cur_obs_p_t_real 
+            #         - zeta_obs_p_t_imag * grad_x_cur_obs_p_t_imag - zeta_obs_Sxx_real * grad_x_cur_obs_Sxx_real
+            #         - zeta_obs_Sxx_imag * grad_x_cur_obs_Sxx_imag - zeta_obs_Sxy_real * grad_x_cur_obs_Sxy_real
+            #         - zeta_obs_Sxy_imag * grad_x_cur_obs_Sxy_imag - zeta_obs_Syy_real * grad_x_cur_obs_Syy_real
+            #         - zeta_obs_Syy_imag * grad_x_cur_obs_Syy_imag )
+            
+
+            # x_next = (x_next - zeta_obs_x_u_real * grad_x_cur_obs_x_u_real
+            #         - zeta_obs_x_u_imag * grad_x_cur_obs_x_u_imag - zeta_obs_x_v_real * grad_x_cur_obs_x_v_real
+            #         - zeta_obs_x_v_imag * grad_x_cur_obs_x_v_imag)
+
+            # x_next = (x_next - zeta_obs_rho_water * grad_x_cur_obs_rho_water )
+
             # norm_value = torch.norm(zeta_obs_rho_water * grad_x_cur_obs_rho_water).item()
             # print(norm_value)
 
@@ -502,18 +551,16 @@ def generate_VA(config):
             zeta_pde_structure_imag_y = zeta_pde_structure_imag_y * scale_factor
 
 
-            x_next = (x_next - - 0.8* (zeta_obs_rho_water * grad_x_cur_obs_rho_water + zeta_obs_p_t_real * grad_x_cur_obs_p_t_real 
+            x_next = (x_next - 0.8* (zeta_obs_rho_water * grad_x_cur_obs_rho_water + zeta_obs_p_t_real * grad_x_cur_obs_p_t_real 
                     + zeta_obs_p_t_imag * grad_x_cur_obs_p_t_imag + zeta_obs_Sxx_real * grad_x_cur_obs_Sxx_real
                     + zeta_obs_Sxx_imag * grad_x_cur_obs_Sxx_imag + zeta_obs_Sxy_real * grad_x_cur_obs_Sxy_real
                     + zeta_obs_Sxy_imag * grad_x_cur_obs_Sxy_imag + zeta_obs_Syy_real * grad_x_cur_obs_Syy_real
                     + zeta_obs_Syy_imag * grad_x_cur_obs_Syy_imag + zeta_obs_x_u_real * grad_x_cur_obs_x_u_real
                     + zeta_obs_x_u_imag * grad_x_cur_obs_x_u_imag + zeta_obs_x_v_real * grad_x_cur_obs_x_v_real
-                    + zeta_obs_x_v_imag * grad_x_cur_obs_x_v_imag) -0.1* (zeta_pde_AC_real * grad_x_cur_pde_AC_real 
-                                                                          + zeta_pde_AC_imag * grad_x_cur_pde_AC_imag
-                                                                          + zeta_pde_structure_real_x * grad_x_cur_pde_structure_real_x 
-                                                                          + zeta_pde_structure_imag_x * grad_x_cur_pde_structure_imag_x
-                                                                          + zeta_pde_structure_real_y * grad_x_cur_pde_structure_real_y
-                                                                          + zeta_pde_structure_imag_y * grad_x_cur_pde_structure_imag_y))
+                    + zeta_obs_x_v_imag * grad_x_cur_obs_x_v_imag) - 
+                     0.05* (zeta_pde_AC_real * grad_x_cur_pde_AC_real + zeta_pde_AC_imag * grad_x_cur_pde_AC_imag
+                           + zeta_pde_structure_real_x * grad_x_cur_pde_structure_real_x + zeta_pde_structure_imag_x * grad_x_cur_pde_structure_imag_x
+                           + zeta_pde_structure_real_y * grad_x_cur_pde_structure_real_y + zeta_pde_structure_imag_y * grad_x_cur_pde_structure_imag_y))
             
             # norm_value = torch.norm(zeta_pde_NS * grad_x_cur_pde_NS).item()
             # print(norm_value)
@@ -549,12 +596,12 @@ def generate_VA(config):
     x_v_real_final = ((x_v_real_final+0.9)/1.8 *(range_data['x_v']['max_real'] - range_data['x_v']['min_real']) + range_data['x_v']['min_real']).to(torch.float64)
     x_v_imag_final = ((x_v_imag_final+0.9)/1.8 *(range_data['x_v']['max_imag'] - range_data['x_v']['min_imag']) + range_data['x_v']['min_imag']).to(torch.float64)
 
-    p_t_final = complex(p_t_real_final, p_t_imag_final)
-    Sxx_final = complex(Sxx_real_final, Sxx_imag_final)
-    Sxy_final = complex(Sxy_real_final, Sxy_imag_final)
-    Syy_final = complex(Syy_real_final, Syy_imag_final)
-    x_u_final = complex(x_u_real_final, x_u_imag_final)
-    x_v_final = complex(x_v_real_final, x_v_imag_final)
+    p_t_final = torch.complex(p_t_real_final, p_t_imag_final)
+    Sxx_final = torch.complex(Sxx_real_final, Sxx_imag_final)
+    Sxy_final = torch.complex(Sxy_real_final, Sxy_imag_final)
+    Syy_final = torch.complex(Syy_real_final, Syy_imag_final)
+    x_u_final = torch.complex(x_u_real_final, x_u_imag_final)
+    x_v_final = torch.complex(x_v_real_final, x_v_imag_final)
 
     relative_error_rho_water = torch.norm(rho_water_final - rho_water_GT, 2) / torch.norm(rho_water_GT, 2)
     relative_error_p_t = torch.norm(p_t_final - p_t_GT, 2) / torch.norm(p_t_GT, 2)

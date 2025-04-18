@@ -2,14 +2,14 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Test E_flow",
+            "name": "Python: Test NS_noBC",
             "type": "debugpy",
             "request": "launch",
             "program": "/home/yangchangfan/CODE/DiffusionPDE/generate_pde.py",
             "console": "integratedTerminal",
             "args": [
    
-                    "--config", "/home/yangchangfan/CODE/DiffusionPDE/configs/E_flow.yaml"
+                    "--config", "/home/yangchangfan/CODE/DiffusionPDE/configs/ns-nonbounded.yaml"
             ],
             "env": {
                 "PYTHONUNBUFFERED": "1",

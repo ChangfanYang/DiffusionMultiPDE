@@ -1,6 +1,6 @@
 import yaml
 from argparse import ArgumentParser
-from scripts import generate_burgers, generate_darcy, generate_poisson, generate_helmholtz, generate_ns_nonbounded, generate_ns_bounded, generate_TE_heat_validate, generate_TE_heat, generate_NS_heat, generate_MHD, generate_E_flow
+from scripts import generate_burgers, generate_darcy, generate_poisson, generate_helmholtz, generate_ns_nonbounded, generate_ns_bounded, generate_TE_heat_validate, generate_TE_heat, generate_NS_heat, generate_MHD, generate_E_flow, generate_VA
 
 if __name__ == "__main__":
     parser = ArgumentParser(description='Generate PDE file')
@@ -45,6 +45,10 @@ if __name__ == "__main__":
     elif name == 'E_flow':
         print('Solving E_flow equation...')
         generate_E_flow(config)
+
+    elif name == 'VA':
+        print('Solving VA equation...')
+        generate_VA(config)
         
 
     else:

@@ -41,9 +41,9 @@ def training_loop(
     kimg_per_tick       = 50,       # Interval of progress prints.
     snapshot_ticks      = 50,       # How often to save network snapshots, None = disable.
     state_dump_ticks    = 500,      # How often to dump training state, None = disable.
-    resume_pkl          = None,     # Start from the given network snapshot, None = random initialization.
-    resume_state_dump   = None,     # Start from the given training state, None = reset training state.
-    resume_kimg         = 0,        # Start from the given training progress.
+    resume_pkl          = "/home/yangchangfan/CODE/DiffusionPDE/pretrained-VA/00001--uncond-ddpmpp-edm-gpus4-batch48-fp32/network-snapshot-003019.pkl",     # Start from the given network snapshot, None = random initialization.
+    resume_state_dump   = "/home/yangchangfan/CODE/DiffusionPDE/pretrained-VA/00001--uncond-ddpmpp-edm-gpus4-batch48-fp32/training-state-003019.pt",     # Start from the given training state, None = reset training state.
+    resume_kimg         = 3019,        # Start from the given training progress.
     cudnn_benchmark     = True,     # Enable torch.backends.cudnn.benchmark?
     device              = torch.device('cuda'),
 ):
@@ -138,6 +138,7 @@ def training_loop(
         for param in net.parameters():
             if param.grad is not None:
                 torch.nan_to_num(param.grad, nan=0, posinf=1e5, neginf=-1e5, out=param.grad)
+        torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=1.5)    # 20250415
         optimizer.step()
 
         # Update EMA.

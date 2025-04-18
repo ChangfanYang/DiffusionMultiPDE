@@ -35,7 +35,7 @@ def load_ranges(base_path,variables):
     return ranges
 
 def normalize(data, min_val, max_val):
-    return (data - min_val) / (max_val - min_val + 1e-10) * 1.8 - 0.9
+    return (data - min_val) / (max_val - min_val) * 1.8 - 0.9
 
 
 range_data = load_ranges(base_path,variables)
