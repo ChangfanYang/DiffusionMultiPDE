@@ -94,7 +94,7 @@ CUDA_VISIBLE_DEVICES=4 /hpc/home/connect.yfang870/.conda/envs/DiffusionPDE/bin/p
 
 
 # Elder
-CUDA_VISIBLE_DEVICES=1 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/Elder.yaml
+CUDA_VISIBLE_DEVICES=7 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/Elder.yaml
 
 
 ### Solve Inverse Problem

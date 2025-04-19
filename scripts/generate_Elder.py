@@ -10,7 +10,7 @@ import scipy.io
 import os
 import scipy.io as sio
 import pandas as pd
-
+from scipy.io import loadmat
 import numpy as np
 from shapely.geometry import Polygon, Point
 import json
@@ -184,36 +184,37 @@ def generate_Elder(config):
     ############################ Load data and network ############################
     datapath = config['data']['datapath']
     offset = config['data']['offset'][0]
+    time_steps = config['data']['time_steps'][0]
     device = config['generate']['device']
+    C, H, W = 34, 128, 128
+    data_test_path = "/data/yangchangfan/DiffusionPDE/data/testing/Elder/"
+    combined_data_GT = np.zeros((C, H, W), dtype=np.float64)
 
-    rho_water_GT_path = os.path.join(datapath, "rho_water", f"{offset}.mat")
-    rho_water_GT = sio.loadmat(rho_water_GT_path)['export_rho_water']
-    rho_water_GT = torch.tensor(rho_water_GT, dtype=torch.float64, device=device)
+    # ---------- 读取 S_c ----------
+    path_Sc = os.path.join(data_test_path, 'S_c', str(offset), '0.mat')
+    Sc_data = loadmat(path_Sc)
+    Sc = list(Sc_data.values())[-1]
+    combined_data_GT[0, :, :] = Sc
 
-    p_t_GT_path = os.path.join(datapath, "p_t", f"{offset}.mat")
-    p_t_GT = sio.loadmat(p_t_GT_path)['export_p_t']
-    p_t_GT = torch.tensor(p_t_GT, dtype=torch.complex128, device=device)
+    # ---------- 读取初始场 + 时域场 ----------
+    var_names = ['u_u', 'u_v', 'c_flow']
+    for var_idx, var in enumerate(var_names):
+       # 初始场（通道 1 ~ 3）
+        path_0 = os.path.join(data_test_path, var, str(offset), '0.mat')
+        data0 = loadmat(path_0)
+        data0 = list(data0.values())[-1]
+        combined_data_GT[1 + var_idx, :, :] = data0
 
-    Sxx_GT_path = os.path.join(datapath, "Sxx", f"{offset}.mat")
-    Sxx_GT = sio.loadmat(Sxx_GT_path)['export_Sxx']
-    Sxx_GT = torch.tensor(Sxx_GT, dtype=torch.complex128, device=device)
+       # 时域场 t=1~10（通道 4 ~ 33）
+        for t in range(1, time_steps + 1):
+            path_t = os.path.join(data_test_path, var, str(offset), f'{t}.mat')
+            data_t = loadmat(path_t)
+            data_t = list(data_t.values())[-1]
+            ch_idx = 4 + var_idx * time_steps + (t - 1)
+            combined_data_GT[ch_idx, :, : ] = data_t
 
-    Sxy_GT_path = os.path.join(datapath, "Sxy", f"{offset}.mat")
-    Sxy_GT = sio.loadmat(Sxy_GT_path)['export_Sxy']
-    Sxy_GT = torch.tensor(Sxy_GT, dtype=torch.complex128, device=device)
+    combined_data_GT = torch.tensor(combined_data_GT, dtype=torch.float64, device=device)
 
-    Syy_GT_path = os.path.join(datapath, "Syy", f"{offset}.mat")
-    Syy_GT = sio.loadmat(Syy_GT_path)['export_Syy']
-    Syy_GT = torch.tensor(Syy_GT, dtype=torch.complex128, device=device)
-
-
-    x_u_GT_path = os.path.join(datapath, "x_u", f"{offset}.mat")
-    x_u_GT = sio.loadmat(x_u_GT_path)['export_x_u']
-    x_u_GT = torch.tensor(x_u_GT, dtype=torch.complex128, device=device)
-
-    x_v_GT_path = os.path.join(datapath, "x_v", f"{offset}.mat")
-    x_v_GT = sio.loadmat(x_v_GT_path)['export_x_v']
-    x_v_GT = torch.tensor(x_v_GT, dtype=torch.complex128, device=device)
 
     
     batch_size = config['generate']['batch_size']
@@ -245,13 +246,10 @@ def generate_Elder(config):
     
     x_next = latents.to(torch.float64) * sigma_t_steps[0]
 
-    known_index_rho_water = random_index(500, 128, seed=6)
-    known_index_p_t = random_index(500, 128, seed=5)
-    known_index_Sxx = random_index(500, 128, seed=4)
-    known_index_Sxy = random_index(500, 128, seed=3)
-    known_index_Syy = random_index(500, 128, seed=2)
-    known_index_x_u = random_index(500, 128, seed=1)
-    known_index_x_v = random_index(500, 128, seed=0)
+    known_index_S_c = random_index(500, 128, seed=3)
+    known_index_u_u = random_index(500, 128, seed=2)
+    known_index_u_v = random_index(500, 128, seed=1)
+    known_index_c_flow = random_index(500, 128, seed=0)
     
     ############################ Sample the data ############################
     for i, (sigma_t_cur, sigma_t_next) in tqdm.tqdm(list(enumerate(zip(sigma_t_steps[:-1], sigma_t_steps[1:]))), unit='step'): # 0, ..., N-1
@@ -274,6 +272,9 @@ def generate_Elder(config):
             d_prime = (x_next - x_N) / sigma_t_next
             x_next = x_cur + (sigma_t_next - sigma_t) * (0.5 * d_cur + 0.5 * d_prime)
         
+        print(x_N.shape)
+        exit()
+
         # Scale the data back
         rho_water_N = x_N[:,0,:,:].unsqueeze(0)
         real_p_t_N = x_N[:,1,:,:].unsqueeze(0)
