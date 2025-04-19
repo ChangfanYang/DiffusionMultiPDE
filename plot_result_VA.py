@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 # 加载数据
-VA_results = sio.loadmat("/hpcfile/home/connect.yfang870/PDE/CODE/VA_results.mat")
+VA_results = sio.loadmat("VA_results.mat")
 
 rho_water = VA_results['rho_water']
 p_t = VA_results['p_t']
@@ -23,7 +23,7 @@ Syy = np.squeeze(Syy)
 x_u = np.squeeze(x_u)
 x_v = np.squeeze(x_v)
 
-data_path = '/hpcfile/home/connect.yfang870/PDE/DATA/testing/VA'
+data_path = '/data/yangchangfan/DiffusionPDE/data/testing/VA'
 offset = 10001
 
 # 定义文件路径

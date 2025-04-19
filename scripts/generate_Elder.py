@@ -60,7 +60,7 @@ def load_ranges(base_path,variables):
 
     
 
-def get_VA_loss(rho_water, p_t_real, p_t_imag, Sxx_real, Sxx_imag, Sxy_real, Sxy_imag, Syy_real, Syy_imag, x_u_real, x_u_imag, x_v_real, 
+def get_Elder_loss(rho_water, p_t_real, p_t_imag, Sxx_real, Sxx_imag, Sxy_real, Sxy_imag, Syy_real, Syy_imag, x_u_real, x_u_imag, x_v_real, 
                 x_v_imag, rho_water_GT, p_t_GT, Sxx_GT, Sxy_GT, Syy_GT, x_u_GT, x_v_GT, rho_water_mask, p_t_mask, Sxx_mask, Sxy_mask, 
                 Syy_mask, x_u_mask, x_v_mask, device=torch.device('cuda')):
     
@@ -179,7 +179,7 @@ def get_VA_loss(rho_water, p_t_real, p_t_imag, Sxx_real, Sxx_imag, Sxy_real, Sxy
 
 
 
-def generate_VA(config):
+def generate_Elder(config):
     """Generate E_flow equation."""
     ############################ Load data and network ############################
     datapath = config['data']['datapath']

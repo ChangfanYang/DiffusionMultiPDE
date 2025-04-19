@@ -480,18 +480,18 @@ def generate_VA(config):
         scale_factor = 1.0 / norm_x_u_real
         zeta_obs_x_u_real = zeta_obs_x_u_real * scale_factor
         norm_x_u_imag = torch.norm(zeta_obs_x_u_imag * grad_x_cur_obs_x_u_imag)
-        scale_factor = 10.0 / norm_x_u_imag
+        scale_factor = 1.0 / norm_x_u_imag
         zeta_obs_x_u_imag = zeta_obs_x_u_imag * scale_factor
 
         norm_x_v_real = torch.norm(zeta_obs_x_v_real * grad_x_cur_obs_x_v_real)
         scale_factor = 1.0 / norm_x_v_real
         zeta_obs_x_v_real = zeta_obs_x_v_real * scale_factor
         norm_x_v_imag = torch.norm(zeta_obs_x_v_imag * grad_x_cur_obs_x_v_imag)
-        scale_factor = 10.0 / norm_x_v_imag
+        scale_factor = 1.0 / norm_x_v_imag
         zeta_obs_x_v_imag = zeta_obs_x_v_imag * scale_factor
         
 
-        if i <= 0.8 * num_steps:
+        if i <= 0.9 * num_steps:
             x_next = (x_next - zeta_obs_rho_water * grad_x_cur_obs_rho_water - zeta_obs_p_t_real * grad_x_cur_obs_p_t_real 
                     - zeta_obs_p_t_imag * grad_x_cur_obs_p_t_imag - zeta_obs_Sxx_real * grad_x_cur_obs_Sxx_real
                     - zeta_obs_Sxx_imag * grad_x_cur_obs_Sxx_imag - zeta_obs_Sxy_real * grad_x_cur_obs_Sxy_real
@@ -551,7 +551,7 @@ def generate_VA(config):
                     + zeta_obs_Syy_imag * grad_x_cur_obs_Syy_imag + zeta_obs_x_u_real * grad_x_cur_obs_x_u_real
                     + zeta_obs_x_u_imag * grad_x_cur_obs_x_u_imag + zeta_obs_x_v_real * grad_x_cur_obs_x_v_real
                     + zeta_obs_x_v_imag * grad_x_cur_obs_x_v_imag) - 
-                     0.05* (zeta_pde_AC_real * grad_x_cur_pde_AC_real + zeta_pde_AC_imag * grad_x_cur_pde_AC_imag
+                     0.2* (zeta_pde_AC_real * grad_x_cur_pde_AC_real + zeta_pde_AC_imag * grad_x_cur_pde_AC_imag
                            + zeta_pde_structure_real_x * grad_x_cur_pde_structure_real_x + zeta_pde_structure_imag_x * grad_x_cur_pde_structure_imag_x
                            + zeta_pde_structure_real_y * grad_x_cur_pde_structure_real_y + zeta_pde_structure_imag_y * grad_x_cur_pde_structure_imag_y))
             
