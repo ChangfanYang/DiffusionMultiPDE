@@ -64,6 +64,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 trai
 # VA
 CUDA_VISIBLE_DEVICES=3,4,5,6,7 torchrun --standalone --nproc_per_node=5 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-VA/ --data=/data/yangchangfan/DiffusionPDE/data/VA-merged/ --cond=0 --arch=ddpmpp --batch=60 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
+
 # Elder
 CUDA_VISIBLE_DEVICES=1,2,3,4,5,6 torchrun --standalone --nproc_per_node=5 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-Elder/ --data=/data/yangchangfan/DiffusionPDE/data/Elder-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
@@ -86,6 +87,15 @@ CUDA_VISIBLE_DEVICES=0 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python
 
 # VA
 CUDA_VISIBLE_DEVICES=1 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/VA.yaml
+
+
+# VA
+CUDA_VISIBLE_DEVICES=4 /hpc/home/connect.yfang870/.conda/envs/DiffusionPDE/bin/python3 /hpcfile/home/connect.yfang870/PDE/CODE/generate_pde.py --config /hpcfile/home/connect.yfang870/PDE/CODE/configs/VA.yaml
+
+
+# Elder
+CUDA_VISIBLE_DEVICES=1 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/Elder.yaml
+
 
 ### Solve Inverse Problem
 

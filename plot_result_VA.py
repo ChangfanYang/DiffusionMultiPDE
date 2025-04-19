@@ -35,11 +35,6 @@ Syy_GT = sio.loadmat(os.path.join(data_path, 'Syy', f'{offset}.mat'))['export_Sy
 x_u_GT = sio.loadmat(os.path.join(data_path, 'x_u', f'{offset}.mat'))['export_x_u']
 x_v_GT = sio.loadmat(os.path.join(data_path, 'x_v', f'{offset}.mat'))['export_x_v']
 
-omega = torch.tensor(np.pi * 1e5, dtype=torch.float64)
-rho_Aluminum = 2730
-x_u_GT = rho_Aluminum * omega**2 * x_u_GT
-x_v_GT = rho_Aluminum * omega**2 * x_v_GT
-
 
 # 计算每个变量的最小值和最大值
 # vmin_kappa, vmax_kappa = kappa_GT.min(), kappa_GT.max()
