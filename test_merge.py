@@ -135,20 +135,39 @@ import os
 
 
 
-import numpy as np
+# import numpy as np
 
-file_path = "/data/yangchangfan/DiffusionPDE/data/TE_heat-merged/merge_1.npy"
-data = np.load(file_path)
+# file_path = "/data/yangchangfan/DiffusionPDE/data/TE_heat-merged/merge_1.npy"
+# data = np.load(file_path)
 
-# Check the shape and content
-print("Array shape:", data.shape)
-print("Data type:", data[:,:,3])
-print("Min value:", np.min(data[:,:,3]))
-print("Max value:", np.max(data[:,:,3]))
+# # Check the shape and content
+# print("Array shape:", data.shape)
+# print("Data type:", data[:,:,3])
+# print("Min value:", np.min(data[:,:,3]))
+# print("Max value:", np.max(data[:,:,3]))
 
 
 
-# 打印数组的内容（可选）
-# print("Content of 'a':", a)
-# print("Content of 't':", t)
-# print("Content of 'u':", u)
+# # 打印数组的内容（可选）
+# # print("Content of 'a':", a)
+# # print("Content of 't':", t)
+# # print("Content of 'u':", u)
+
+
+data_Elder = np.load("/data/yangchangfan/DiffusionPDE/data/Elder-merged/merge_1.npy")
+
+print(data_Elder.shape)
+# exit()
+
+
+plt.figure(figsize=(12, 8))  # 可以调整窗口大小
+
+# 绘制子图
+for i in range(4):
+    plt.subplot(1, 4, i + 1)  # 创建 2x2 的子图布局
+    plt.imshow(data_Elder[:, :, i])  # 绘制第 i 个通道的数据
+    plt.title(f"Channel {i}")  # 添加标题
+    plt.colorbar()  # 添加颜色条（可选）
+
+# 保存图像
+plt.savefig("merge_Elder.png")

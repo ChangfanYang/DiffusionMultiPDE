@@ -28,154 +28,80 @@ def random_index(k, grid_size, seed=0, device=torch.device('cuda')):
     return mask
 
 
-def normalize(data, min_val, max_val):
-    return (data - min_val) / (max_val - min_val ) * 1.8 - 0.9
-
-
-
-def load_ranges(base_path,variables):
-    ranges = {}
-    
-    # rho_water
-    rho_data = sio.loadmat(f"{base_path}/rho_water/range_allrho_water.mat")['range_allrho_water']
-    ranges['rho_water'] = {'max': rho_data[0,1], 'min': rho_data[0,0]}
-    
-    # 加载其他变量的范围
-    for var in variables:
-        real_data = sio.loadmat(f"{base_path}/{var}/range_allreal_{var}.mat")[f'range_allreal_{var}']
-        imag_data = sio.loadmat(f"{base_path}/{var}/range_allimag_{var}.mat")[f'range_allimag_{var}']
-        
-        ranges[var] = {
-            'max_real': real_data[0,1],
-            'min_real': real_data[0,0],
-            'max_imag': imag_data[0,1],
-            'min_imag': imag_data[0,0]
-        }
-    
-
-
-    return ranges
+def invnormalize(data, min_val, max_val):
+    return (data + 0.9) / 1.8 * (max_val - min_val )
 
         
+def get_Elder_loss(S_c, u_u, u_v, c_flow, S_c_GT, u_u_GT, u_v_GT, c_flow_GT, S_c_mask, u_u_mask, u_v_mask, c_flow_mask, device=torch.device('cuda')):
+    """Return the loss of the Elder equation and the observation loss."""
 
-    
+    rho_0 = 1000
+    beta = 200
+    rho = rho_0+beta*c_flow  # [T, H, W]
+    T, H, W = rho.shape
 
-def get_Elder_loss(rho_water, p_t_real, p_t_imag, Sxx_real, Sxx_imag, Sxy_real, Sxy_imag, Syy_real, Syy_imag, x_u_real, x_u_imag, x_v_real, 
-                x_v_imag, rho_water_GT, p_t_GT, Sxx_GT, Sxy_GT, Syy_GT, x_u_GT, x_v_GT, rho_water_mask, p_t_mask, Sxx_mask, Sxy_mask, 
-                Syy_mask, x_u_mask, x_v_mask, device=torch.device('cuda')):
-    
-    """Return the loss of the VA equation and the observation loss."""
+    delta_x = (300/128) # 1m
+    delta_y = (150/128) # 1m
+    delta_t = 2 * 365 * 24 * 60 *60 # 2 a
 
-    omega = torch.tensor(np.pi * 1e5, dtype=torch.float64, device=device)
-
-    c_ac = 1.48144e3
-    
-
-    delta_x = (40/128)*1e-3 # 1mm
-    delta_y = (40/128)*1e-3 # 1mm
-    
+    # 空间导数核 (for conv2d)
     deriv_x = torch.tensor([[-1, 0, 1]], dtype=torch.float64, device=device).view(1, 1, 1, 3) / (2 * delta_x)
     deriv_y = torch.tensor([[-1], [0], [1]], dtype=torch.float64, device=device).view(1, 1, 3, 1) / (2 * delta_y)
 
-    # Continuity_acoustic real
-    grad_x_next_x_p_t_real = F.conv2d(p_t_real, deriv_x, padding=(0, 1))
-    grad_x_next_y_p_t_real = F.conv2d(p_t_real, deriv_y, padding=(1, 0))
-    Laplace_p_t_real = F.conv2d(grad_x_next_x_p_t_real/rho_water, deriv_x, padding=(0, 1)) + F.conv2d(grad_x_next_y_p_t_real/rho_water, deriv_y, padding=(1, 0))
-    result_AC_real = Laplace_p_t_real + omega**2*p_t_real/(rho_water*c_ac**2)
+    # 时间导数核 (for conv1d)
+    deriv_t = torch.tensor([[-1, 0, 1]], dtype=torch.float64, device=device).view(1, 1, 3) / (2 * delta_t)
 
-    # Continuity_acoustic imag
-    grad_x_next_x_p_t_imag = F.conv2d(p_t_imag, deriv_x, padding=(0, 1))
-    grad_x_next_y_p_t_imag = F.conv2d(p_t_imag, deriv_y, padding=(1, 0))
-    Laplace_p_t_imag = F.conv2d(grad_x_next_x_p_t_imag/rho_water, deriv_x, padding=(0, 1)) + F.conv2d(grad_x_next_y_p_t_imag/rho_water, deriv_y, padding=(1, 0))
-    result_AC_imag = Laplace_p_t_imag + omega**2*p_t_imag/(rho_water*c_ac**2)
+    # Darcy
+    # 时间导数 d(rho)/dt
+    rho_t = rho.permute(1, 2, 0).reshape(-1, 1, T)     # [H*W, 1, T]
+    d_rho_dt = F.conv1d(rho_t, deriv_t, padding=1)     # [H*W, 1, T]
+    d_rho_dt = d_rho_dt.squeeze(1).reshape(H, W, T).permute(2, 0, 1)  # [T, H, W]
 
+    rho_u = rho * u_u
+    rho_u_2d = rho_u.unsqueeze(1)  # [T, 1, H, W]
+    d_rho_u_dx = F.conv2d(rho_u_2d, deriv_x, padding=(0, 1)).squeeze(1)  # [T, H, W]
 
-    # Continuity_structure real_x imag_x
-    grad_x_next_x_Sxx_real = F.conv2d(Sxx_real, deriv_x, padding=(0, 1))
-    grad_x_next_y_Sxy_real = F.conv2d(Sxy_real, deriv_y, padding=(1, 0))
-    result_structure_real_x = grad_x_next_x_Sxx_real + grad_x_next_y_Sxy_real + x_u_real
-    
-    grad_x_next_x_Sxx_imag = F.conv2d(Sxx_imag, deriv_x, padding=(0, 1))
-    grad_x_next_y_Sxy_imag = F.conv2d(Sxy_imag, deriv_y, padding=(1, 0))
-    result_structure_imag_x = grad_x_next_x_Sxx_imag + grad_x_next_y_Sxy_imag + x_u_imag
+    rho_v = rho * u_v
+    rho_v_2d = rho_v.permute(0, 1, 2).unsqueeze(1)
+    d_rho_v_dy = F.conv2d(rho_v_2d, deriv_y, padding=(1, 0)).squeeze(1)
 
-    # Continuity_structure real_y imag_y
-    grad_x_next_x_Sxy_real = F.conv2d(Sxy_real, deriv_x, padding=(0, 1))
-    grad_x_next_y_Syy_real = F.conv2d(Syy_real, deriv_y, padding=(1, 0))
-    result_structure_real_y = grad_x_next_x_Sxy_real + grad_x_next_y_Syy_real + x_v_real
+    result_Darcy = 0.1 * d_rho_dt + d_rho_u_dx + d_rho_v_dy
 
-    grad_x_next_x_Sxy_imag = F.conv2d(Sxy_imag, deriv_x, padding=(0, 1))
-    grad_x_next_y_Syy_imag = F.conv2d(Syy_imag, deriv_y, padding=(1, 0))
-    result_structure_imag_y = grad_x_next_x_Sxy_imag + grad_x_next_y_Syy_imag + x_v_imag
+    # TDS
+    c_t = c_flow.permute(1, 2, 0).reshape(-1, 1, T)
+    dc_dt = F.conv1d(c_t, deriv_t, padding=1).squeeze(1).reshape(H, W, T).permute(2, 0, 1)
 
+    c_2d = c_flow.unsqueeze(1)  # [T, 1, H, W]
+    dc_dx = F.conv2d(c_2d, deriv_x, padding=(0, 1)).squeeze(1)
+    dc_dy = F.conv2d(c_2d, deriv_y, padding=(1, 0)).squeeze(1)
 
-    # scipy.io.savemat('grad_x_next_x_Sxx_real.mat', {'grad_x_next_x_Sxx_real': grad_x_next_x_Sxx_real.cpu().detach().numpy()})
-    # scipy.io.savemat('grad_x_next_y_Sxy_real.mat', {'grad_x_next_y_Sxy_real': grad_x_next_y_Sxy_real.cpu().detach().numpy()})
-    # scipy.io.savemat('result_part_real.mat', {'result_part_real': result_part_real.cpu().detach().numpy()})
-    # scipy.io.savemat('x_u_real.mat', {'x_u_real': x_u_real.cpu().detach().numpy()})
-    # scipy.io.savemat('x_u_imag.mat', {'x_u_imag': x_u_imag.cpu().detach().numpy()})
-    # scipy.io.savemat('x_u_real.mat', {'x_u_real': x_u_real.cpu().detach().numpy()})
-    # scipy.io.savemat('Sxx_real.mat', {'Sxx_real': Sxx_real.cpu().detach().numpy()})
+    laplace_c = F.conv2d(dc_dx.unsqueeze(1), deriv_x, padding=(0, 1)).squeeze(1) + F.conv2d(dc_dy.unsqueeze(1), deriv_y, padding=(1, 0)).squeeze(1)
 
-    pde_loss_AC_real = result_AC_real
-    pde_loss_AC_imag = result_AC_imag
+    result_TDS = 0.1 * dc_dt + u_u * dc_dx + u_v * dc_dy - 0.1 * 3.56e-6 * laplace_c - S_c
 
-    pde_loss_structure_real_x = result_structure_real_x
-    pde_loss_structure_imag_x = result_structure_imag_x
+    scipy.io.savemat('result_Darcy.mat', {'result_Darcy': result_Darcy.cpu().detach().numpy()})
+    scipy.io.savemat('result_TDS.mat', {'result_TDS': result_TDS.cpu().detach().numpy()})
 
-    pde_loss_structure_real_y = result_structure_real_y
-    pde_loss_structure_imag_y = result_structure_imag_y
+    pde_loss_Darcy = result_Darcy
+    pde_loss_TDS = result_TDS
 
+    pde_loss_Darcy = pde_loss_Darcy.squeeze()
+    pde_loss_TDS = pde_loss_TDS.squeeze()
 
-    pde_loss_AC_real = pde_loss_AC_real.squeeze()
-    pde_loss_AC_imag = pde_loss_AC_imag.squeeze()
+    # pde_loss_Darcy = pde_loss_Darcy/1
+    # pde_loss_TDS = pde_loss_TDS/1
 
-    pde_loss_structure_real_x = pde_loss_structure_real_x.squeeze()
-    pde_loss_structure_imag_x = pde_loss_structure_imag_x.squeeze()
-    pde_loss_structure_real_y = pde_loss_structure_real_y.squeeze()
-    pde_loss_structure_imag_y = pde_loss_structure_imag_y.squeeze()
-    
-    pde_loss_AC_real = pde_loss_AC_real/1000000
-    pde_loss_AC_imag = pde_loss_AC_imag/1000000
-
-    pde_loss_structure_real_x = pde_loss_structure_real_x/1000
-    pde_loss_structure_imag_x = pde_loss_structure_imag_x/1000
-    pde_loss_structure_real_y = pde_loss_structure_real_y/1000
-    pde_loss_structure_imag_y = pde_loss_structure_imag_y/1000
+    observation_loss_S_c = (S_c - S_c_GT).squeeze()
+    observation_loss_S_c = observation_loss_S_c * S_c_mask  
+    observation_loss_u_u = (u_u - u_u_GT).squeeze()
+    observation_loss_u_u = observation_loss_u_u * u_u_mask
+    observation_loss_u_v = (u_v - u_v_GT).squeeze()
+    observation_loss_u_v = observation_loss_u_v * u_v_mask  
+    observation_loss_c_flow = (c_flow - c_flow_GT).squeeze()
+    observation_loss_c_flow = observation_loss_c_flow * c_flow_mask  
 
 
-    # scipy.io.savemat('test_rho.mat', {'rho': rho.cpu().detach().numpy()})
-    # scipy.io.savemat('test_Crho.mat', {'Crho': Crho.cpu().detach().numpy()})
-    # scipy.io.savemat('test_rho_water.mat', {'rho_watera': rho_water.cpu().detach().numpy()})
-    # scipy.io.savemat('test_Laplac_T.mat', {'Laplac_T': Laplac_T.cpu().detach().numpy()})
-    # scipy.io.savemat('test_Q_heat.mat', {'Q_heat': Q_heat.cpu().detach().numpy()})
-    # scipy.io.savemat('test_x_u.mat', {'x_u': x_u.cpu().detach().numpy()})
-    # scipy.io.savemat('test_x_v.mat', {'x_v': x_v.cpu().detach().numpy()})
-
-    p_t_complex = torch.complex(p_t_real, p_t_imag)
-    Sxx_complex = torch.complex(Sxx_real, Sxx_imag)
-    Sxy_complex = torch.complex(Sxy_real, Sxy_imag)
-    Syy_complex = torch.complex(Syy_real, Syy_imag)
-    x_u_complex = torch.complex(x_u_real, x_u_imag)
-    x_v_complex = torch.complex(x_v_real, x_v_imag)
-
-    observation_loss_rho_water = (rho_water - rho_water_GT).squeeze()
-    observation_loss_rho_water = observation_loss_rho_water * rho_water_mask  
-    observation_loss_p_t = (p_t_complex - p_t_GT).squeeze()
-    observation_loss_p_t = observation_loss_p_t * p_t_mask
-    observation_loss_Sxx = (Sxx_complex - Sxx_GT).squeeze()
-    observation_loss_Sxx = observation_loss_Sxx * Sxx_mask  
-    observation_loss_Sxy = (Sxy_complex - Sxy_GT).squeeze()
-    observation_loss_Sxy = observation_loss_Sxy * Sxy_mask  
-    observation_loss_Syy = (Syy_complex - Syy_GT).squeeze()
-    observation_loss_Syy = observation_loss_Syy * Syy_mask  
-    observation_loss_x_u = (x_u_complex - x_u_GT).squeeze()
-    observation_loss_x_u = observation_loss_x_u * x_u_mask  
-    observation_loss_x_v = (x_v_complex - x_v_GT).squeeze()
-    observation_loss_x_v = observation_loss_x_v * x_v_mask  
-    
-
-    return pde_loss_AC_real, pde_loss_AC_imag, pde_loss_structure_real_x, pde_loss_structure_imag_x, pde_loss_structure_real_y, pde_loss_structure_imag_y, observation_loss_rho_water, observation_loss_p_t, observation_loss_Sxx, observation_loss_Sxy, observation_loss_Syy, observation_loss_x_u, observation_loss_x_v
+    return pde_loss_Darcy, pde_loss_TDS, observation_loss_S_c, observation_loss_u_u, observation_loss_u_v, observation_loss_c_flow
 
 
 
@@ -215,7 +141,15 @@ def generate_Elder(config):
 
     combined_data_GT = torch.tensor(combined_data_GT, dtype=torch.float64, device=device)
 
+    # S_c_GT = combined_data_GT[0].unsqueeze(0).expand(11, -1, -1)
+    # u_u_GT = torch.stack([combined_data_GT[i] for i in [1] + list(range(4, 14))], dim=0)  # [11, H, W]
+    # u_v_GT = torch.stack([combined_data_GT[i] for i in [2] + list(range(14, 24))], dim=0)
+    # c_flow_GT = torch.stack([combined_data_GT[i] for i in [3] + list(range(24, 34))], dim=0)
 
+    S_c_GT = combined_data_GT[0].unsqueeze(0).expand(2, -1, -1)
+    u_u_GT = torch.stack([combined_data_GT[i] for i in [1] + list(range(4, 5))], dim=0)  # [2, H, W]
+    u_v_GT = torch.stack([combined_data_GT[i] for i in [2] + list(range(5, 6))], dim=0)
+    c_flow_GT = torch.stack([combined_data_GT[i] for i in [3] + list(range(6, 7))], dim=0)
     
     batch_size = config['generate']['batch_size']
     seed = config['generate']['seed']
@@ -272,120 +206,94 @@ def generate_Elder(config):
             d_prime = (x_next - x_N) / sigma_t_next
             x_next = x_cur + (sigma_t_next - sigma_t) * (0.5 * d_cur + 0.5 * d_prime)
         
-        print(x_N.shape)
-        exit()
 
         # Scale the data back
-        rho_water_N = x_N[:,0,:,:].unsqueeze(0)
-        real_p_t_N = x_N[:,1,:,:].unsqueeze(0)
-        imag_p_t_N = x_N[:,2,:,:].unsqueeze(0)
-        real_Sxx_N = x_N[:,3,:,:].unsqueeze(0)
-        imag_Sxx_N = x_N[:,4,:,:].unsqueeze(0)
-        real_Sxy_N = x_N[:,5,:,:].unsqueeze(0)
-        imag_Sxy_N = x_N[:,6,:,:].unsqueeze(0)
-        real_Syy_N = x_N[:,7,:,:].unsqueeze(0)
-        imag_Syy_N = x_N[:,8,:,:].unsqueeze(0)
-        real_x_u_N = x_N[:,9,:,:].unsqueeze(0)
-        imag_x_u_N = x_N[:,10,:,:].unsqueeze(0)
-        real_x_v_N = x_N[:,11,:,:].unsqueeze(0)
-        imag_x_v_N = x_N[:,12,:,:].unsqueeze(0)
+        # S_c_N = x_N[0 ,0,:,:].unsqueeze(0).expand(11, -1, -1)
+        # u_u_N = x_N[0, [1] + list(range(4, 14)), :, :]  # shape: [11, 128, 128]
+        # u_v_N = x_N[0, [2] + list(range(14, 24)), :, :] 
+        # c_flow_N = x_N[0, [3] + list(range(24, 34)), :, :] 
 
-        # inv_normalization
-        range_allrho_water_paths = "/data/yangchangfan/DiffusionPDE/data/training/VA/rho_water/range_allrho_water.mat"
-        range_allrho_water = sio.loadmat(range_allrho_water_paths)['range_allrho_water']
-        range_allrho_water = torch.tensor(range_allrho_water, device=device)
-        max_rho_water = range_allrho_water[0,1]
-        min_rho_water = range_allrho_water[0,0]
+        # Scale the data back
+        S_c_N = x_N[0 ,0,:,:].unsqueeze(0).expand(2, -1, -1)
+        u_u_N = x_N[0, [1] + list(range(4, 5)), :, :]  # shape: [2, 128, 128]
+        u_v_N = x_N[0, [2] + list(range(5, 6)), :, :] 
+        c_flow_N = x_N[0, [3] + list(range(6, 7)), :, :] 
 
 
-        base_path = "/data/yangchangfan/DiffusionPDE/data/training/VA"
-        variables = ['p_t', 'Sxx', 'Sxy', 'Syy', 'x_u', 'x_v']
+        data_base_path = "/data/yangchangfan/DiffusionPDE/data/training/Elder/"
 
-        range_data = load_ranges(base_path,variables)
+         # -------------------- 加载归一化范围 --------------------
+        range_allS_c = sio.loadmat(os.path.join(data_base_path, "S_c/range_allS_c.mat"))['range_allS_c'][0]
+        range_allu_u = sio.loadmat(os.path.join(data_base_path, "u_u/range_allu_u.mat"))['range_allu_u'][0]
+        range_allu_v = sio.loadmat(os.path.join(data_base_path, "u_v/range_allu_v.mat"))['range_allu_v'][0]
+        range_allc_flow = sio.loadmat(os.path.join(data_base_path, "c_flow/range_allc_flow.mat"))['range_allc_flow'][0]
 
-        rho_water_N = ((rho_water_N+0.9)/1.8 *(max_rho_water - min_rho_water) + min_rho_water).to(torch.float64)
-        real_p_t_N = ((real_p_t_N+0.9)/1.8 *(range_data['p_t']['max_real'] - range_data['p_t']['min_real']) + range_data['p_t']['min_real']).to(torch.float64)
-        imag_p_t_N = ((imag_p_t_N+0.9)/1.8 *(range_data['p_t']['max_imag'] - range_data['p_t']['min_imag']) + range_data['p_t']['min_imag']).to(torch.float64)
-        real_Sxx_N = ((real_Sxx_N+0.9)/1.8 *(range_data['Sxx']['max_real'] - range_data['Sxx']['min_real']) + range_data['Sxx']['min_real']).to(torch.float64)
-        imag_Sxx_N = ((imag_Sxx_N+0.9)/1.8 *(range_data['Sxx']['max_imag'] - range_data['Sxx']['min_imag']) + range_data['Sxx']['min_imag']).to(torch.float64)
-        real_Sxy_N = ((real_Sxy_N+0.9)/1.8 *(range_data['Sxy']['max_real'] - range_data['Sxy']['min_real']) + range_data['Sxy']['min_real']).to(torch.float64)
-        imag_Sxy_N = ((imag_Sxy_N+0.9)/1.8 *(range_data['Sxy']['max_imag'] - range_data['Sxy']['min_imag']) + range_data['Sxy']['min_imag']).to(torch.float64)
-        real_Syy_N = ((real_Syy_N+0.9)/1.8 *(range_data['Syy']['max_real'] - range_data['Syy']['min_real']) + range_data['Syy']['min_real']).to(torch.float64)
-        imag_Syy_N = ((imag_Syy_N+0.9)/1.8 *(range_data['Syy']['max_imag'] - range_data['Syy']['min_imag']) + range_data['Syy']['min_imag']).to(torch.float64)
-        real_x_u_N = ((real_x_u_N+0.9)/1.8 *(range_data['x_u']['max_real'] - range_data['x_u']['min_real']) + range_data['x_u']['min_real']).to(torch.float64)
-        imag_x_u_N = ((imag_x_u_N+0.9)/1.8 *(range_data['x_u']['max_imag'] - range_data['x_u']['min_imag']) + range_data['x_u']['min_imag']).to(torch.float64)
-        real_x_v_N = ((real_x_v_N+0.9)/1.8 *(range_data['x_v']['max_real'] - range_data['x_v']['min_real']) + range_data['x_v']['min_real']).to(torch.float64)
-        imag_x_v_N = ((imag_x_v_N+0.9)/1.8 *(range_data['x_v']['max_imag'] - range_data['x_v']['min_imag']) + range_data['x_v']['min_imag']).to(torch.float64)
-        
+        ranges = {
+            'S_c': range_allS_c,
+            'u_u': range_allu_u,
+            'u_v': range_allu_v,
+            'c_flow': range_allc_flow,
+        }
+
+
+        S_c_N = invnormalize(S_c_N, *ranges['S_c']).to(torch.float64)
+        u_u_N = invnormalize(u_u_N, *ranges['u_u']).to(torch.float64)
+        u_v_N = invnormalize(u_v_N, *ranges['u_v']).to(torch.float64)
+        c_flow_N = invnormalize(c_flow_N, *ranges['c_flow']).to(torch.float64)
 
         # Compute the loss
-
-        (pde_loss_AC_real, pde_loss_AC_imag, pde_loss_structure_real_x, pde_loss_structure_imag_x, pde_loss_structure_real_y, pde_loss_structure_imag_y, 
-          observation_loss_rho_water, observation_loss_p_t, observation_loss_Sxx, observation_loss_Sxy, observation_loss_Syy, observation_loss_x_u, 
-          observation_loss_x_v) = get_VA_loss(rho_water_N, real_p_t_N, imag_p_t_N, real_Sxx_N, imag_Sxx_N, real_Sxy_N, imag_Sxy_N, real_Syy_N, imag_Syy_N, 
-                                              real_x_u_N, imag_x_u_N, real_x_v_N, imag_x_v_N, rho_water_GT, p_t_GT, Sxx_GT, Sxy_GT, Syy_GT, x_u_GT, x_v_GT, 
-                                              known_index_rho_water, known_index_p_t, known_index_Sxx, known_index_Sxy, known_index_Syy, known_index_x_u, 
-                                              known_index_x_v, device=device)
-        
-
-        L_pde_AC_real = torch.norm(pde_loss_AC_real, 2)/(128*128)
-        L_pde_AC_imag = torch.norm(pde_loss_AC_imag, 2)/(128*128)
-        L_pde_structure_real_x = torch.norm(pde_loss_structure_real_x, 2)/(128*128)
-        L_pde_structure_imag_x = torch.norm(pde_loss_structure_imag_x, 2)/(128*128)
-        L_pde_structure_real_y = torch.norm(pde_loss_structure_real_y, 2)/(128*128)
-        L_pde_structure_imag_y = torch.norm(pde_loss_structure_imag_y, 2)/(128*128)
-        
-        L_obs_rho_water = torch.norm(observation_loss_rho_water, 2)/500
-        L_obs_p_t_real = torch.norm(observation_loss_p_t.real, 2)/500
-        L_obs_p_t_imag = torch.norm(observation_loss_p_t.imag, 2)/500
-        L_obs_Sxx_real = torch.norm(observation_loss_Sxx.real, 2)/500
-        L_obs_Sxx_imag = torch.norm(observation_loss_Sxx.imag, 2)/500
-        L_obs_Sxy_real = torch.norm(observation_loss_Sxy.real, 2)/500
-        L_obs_Sxy_imag = torch.norm(observation_loss_Sxy.imag, 2)/500
-        L_obs_Syy_real = torch.norm(observation_loss_Syy.real, 2)/500
-        L_obs_Syy_imag = torch.norm(observation_loss_Syy.imag, 2)/500
-        L_obs_x_u_real = torch.norm(observation_loss_x_u.real, 2)/500
-        L_obs_x_u_imag = torch.norm(observation_loss_x_u.imag, 2)/500
-        L_obs_x_v_real = torch.norm(observation_loss_x_v.real, 2)/500
-        L_obs_x_v_imag = torch.norm(observation_loss_x_v.imag, 2)/500
+        pde_loss_Darcy, pde_loss_TDS, observation_loss_S_c, observation_loss_u_u, observation_loss_u_v, observation_loss_c_flow = get_Elder_loss(S_c_N, u_u_N, u_v_N, c_flow_N, S_c_GT, u_u_GT, u_v_GT, c_flow_GT, known_index_S_c, known_index_u_u, known_index_u_v, known_index_c_flow, device=device)
 
         
-        print(L_obs_x_u_real)
-        print(L_obs_x_u_imag)
 
+        L_pde_Darcy = torch.norm(pde_loss_Darcy, 2)/(128*128)
+        L_pde_TDS = torch.norm(pde_loss_TDS, 2)/(128*128)
 
-        # print(L_pde_AC_real)
-        # print(L_pde_AC_imag)
-        # print(L_pde_structure_real_x)
-        # print(L_pde_structure_imag_x)
-        # print(L_pde_structure_real_y)
-        # print(L_pde_structure_imag_y)
+        L_obs_S_c = torch.norm(observation_loss_S_c, 2)/500
+
+        u_loss_list = []
+        v_loss_list = []
+        c_flow_loss_list = []
+        u_grad_list = []
+        v_grad_list = []
+        c_flow_grad_list = []
+        for t in range(observation_loss_u_u.shape[0]):
+            L_obs_u_u_0 = torch.norm(observation_loss_u_u[t,:,:], 2)/500
+            L_obs_u_v_0 = torch.norm(observation_loss_u_v[t,:,:], 2)/500
+            L_obs_c_flow_0 = torch.norm(observation_loss_c_flow[t,:,:], 2)/500
+
+            u_loss_list.append(L_obs_u_u_0)
+            v_loss_list.append(L_obs_u_v_0)
+            c_flow_loss_list.append(L_obs_c_flow_0)
+    
+            grad_x_cur_obs_u_u = torch.autograd.grad(outputs=L_obs_u_u_0, inputs=x_cur, retain_graph=True)[0]
+            grad_x_cur_obs_u_v = torch.autograd.grad(outputs=L_obs_u_v_0, inputs=x_cur, retain_graph=True)[0]
+            grad_x_cur_obs_c_flow = torch.autograd.grad(outputs=L_obs_c_flow_0, inputs=x_cur, retain_graph=True)[0]
+            u_grad_list.append(grad_x_cur_obs_u_u)
+            v_grad_list.append(grad_x_cur_obs_u_v)
+            c_flow_grad_list.append(grad_x_cur_obs_c_flow)
+
+        
+        print(L_pde_Darcy)
+        print(L_pde_TDS)
+
+        print(L_obs_S_c)
+        # print(L_obs_u_u)
+        # print(L_obs_u_v)
+        # print(L_obs_c_flow)
 
 
         output_file_path = "inference_losses.jsonl"
         if i % 10 == 0:
             log_entry = {
               "step": i,
-              "L_pde_AC_real": L_pde_AC_real .tolist(),
-              "L_pde_AC_imag": L_pde_AC_imag.tolist(),
-              "L_pde_structure_real_x": L_pde_structure_real_x .tolist(),
-              "L_pde_structure_imag_x": L_pde_structure_imag_x.tolist(),
-              "L_pde_structure_real_y": L_pde_structure_real_y.tolist(),
-              "L_pde_structure_imag_y": L_pde_structure_imag_y.tolist(),
+              "L_pde_Darcy": L_pde_Darcy .tolist(),
+              "L_pde_TDS": L_pde_TDS.tolist(),
 
-               "L_obs_rho_water": L_obs_rho_water.tolist(),
-               "L_obs_p_t_real": L_obs_p_t_real.tolist(),
-               "L_obs_p_t_imag": L_obs_p_t_imag.tolist(),
-               "L_obs_Sxx_real": L_obs_Sxx_real.tolist(),
-               "L_obs_Sxx_imag": L_obs_Sxx_imag.tolist(),
-               "L_obs_Sxy_real": L_obs_Sxy_real.tolist(),
-               "L_obs_Sxy_imag": L_obs_Sxy_imag.tolist(),
-               "L_obs_Syy_real": L_obs_Syy_real.tolist(),
-               "L_obs_Syy_imag": L_obs_Syy_imag.tolist(),
-               "L_obs_x_u_real": L_obs_x_u_real.tolist(),
-               "L_obs_x_u_imag": L_obs_x_u_imag.tolist(),
-               "L_obs_x_v_real": L_obs_x_v_real.tolist(),             
-               "L_obs_x_v_imag": L_obs_x_v_imag.tolist(),    
+               "L_obs_S_c": L_obs_S_c.tolist(),
+            #    "L_obs_u_u": L_obs_u_u.tolist(),
+            #    "L_obs_u_v": L_obs_u_v.tolist(),
+            #    "L_obs_c_flow": L_obs_c_flow.tolist(), 
            }
             with open(output_file_path, "a") as file:
                 json.dump(log_entry, file)
@@ -394,237 +302,121 @@ def generate_Elder(config):
 
         # print(x_cur.requires_grad, x_cur.grad_fn)
         # exit()
-        grad_x_cur_obs_rho_water = torch.autograd.grad(outputs=L_obs_rho_water, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_p_t_real = torch.autograd.grad(outputs=L_obs_p_t_real, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_p_t_imag = torch.autograd.grad(outputs=L_obs_p_t_imag, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_Sxx_real = torch.autograd.grad(outputs=L_obs_Sxx_real, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_Sxx_imag = torch.autograd.grad(outputs=L_obs_Sxx_imag, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_Sxy_real = torch.autograd.grad(outputs=L_obs_Sxy_real, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_Sxy_imag = torch.autograd.grad(outputs=L_obs_Sxy_imag, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_Syy_real = torch.autograd.grad(outputs=L_obs_Syy_real, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_Syy_imag = torch.autograd.grad(outputs=L_obs_Syy_imag, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_x_u_real = torch.autograd.grad(outputs=L_obs_x_u_real, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_x_u_imag = torch.autograd.grad(outputs=L_obs_x_u_imag, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_x_v_real = torch.autograd.grad(outputs=L_obs_x_v_real, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_x_v_imag = torch.autograd.grad(outputs=L_obs_x_v_imag, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_S_c = torch.autograd.grad(outputs=L_obs_S_c, inputs=x_cur, retain_graph=True)[0]
 
-
-        grad_x_cur_pde_AC_real = torch.autograd.grad(outputs=L_pde_AC_real, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_pde_AC_imag = torch.autograd.grad(outputs=L_pde_AC_imag, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_pde_structure_real_x = torch.autograd.grad(outputs=L_pde_structure_real_x, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_pde_structure_imag_x = torch.autograd.grad(outputs=L_pde_structure_imag_x, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_pde_structure_real_y = torch.autograd.grad(outputs=L_pde_structure_real_y, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_pde_structure_imag_y = torch.autograd.grad(outputs=L_pde_structure_imag_y, inputs=x_cur, retain_graph=True)[0]
-      
+        grad_x_cur_pde_Darcy = torch.autograd.grad(outputs=L_pde_Darcy, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_pde_TDS = torch.autograd.grad(outputs=L_pde_TDS, inputs=x_cur, retain_graph=True)[0]
         
-
-        # zeta_obs_mater = config['generate']['zeta_obs_mater']
-        # zeta_obs_Ez = config['generate']['zeta_obs_Ez']
-        # zeta_obs_T = 1e3*config['generate']['zeta_obs_T']
-        # zeta_pde = config['generate']['zeta_pde']
        
-        zeta_obs_rho_water = 10
-        zeta_obs_p_t_real = 10
-        zeta_obs_p_t_imag = 10
-        zeta_obs_Sxx_real = 10
-        zeta_obs_Sxx_imag = 10
-        zeta_obs_Sxy_real = 10
-        zeta_obs_Sxy_imag = 10
-        zeta_obs_Syy_real = 10
-        zeta_obs_Syy_imag = 10
-        zeta_obs_x_u_real = 10
-        zeta_obs_x_u_imag = 10
-        zeta_obs_x_v_real = 10
-        zeta_obs_x_v_imag = 10
+        zeta_obs_S_c = 10
+        zeta_obs_u_u = 10
+        zeta_obs_u_v = 10
+        zeta_obs_c_flow = 10
 
-        zeta_pde_AC_real = 10
-        zeta_pde_AC_imag = 10
-        zeta_pde_structure_real_x = 10
-        zeta_pde_structure_imag_x = 10
-        zeta_pde_structure_real_y = 10
-        zeta_pde_structure_imag_y = 10
+        zeta_pde_Darcy = 10
+        zeta_pde_TDS = 10
 
+        zeta_obs_u_u_list = []
+        zeta_obs_u_v_list = []
+        zeta_obs_c_flow_list = []
     # scale zeta
-        norm_rho_water = torch.norm(zeta_obs_rho_water * grad_x_cur_obs_rho_water)
-        scale_factor = 1.0 / norm_rho_water
-        zeta_obs_rho_water = zeta_obs_rho_water * scale_factor
+        norm_S_c = torch.norm(zeta_obs_S_c * grad_x_cur_obs_S_c)
+        scale_factor = 1.0 / norm_S_c
+        zeta_obs_S_c = zeta_obs_S_c * scale_factor
 
-        norm_p_t_real = torch.norm(zeta_obs_p_t_real * grad_x_cur_obs_p_t_real)
-        scale_factor = 1.0 / norm_p_t_real
-        zeta_obs_p_t_real = zeta_obs_p_t_real * scale_factor
-        norm_p_t_imag = torch.norm(zeta_obs_p_t_imag * grad_x_cur_obs_p_t_imag)
-        scale_factor = 1.0 / norm_p_t_imag
-        zeta_obs_p_t_imag = zeta_obs_p_t_imag * scale_factor
+        for t in range(observation_loss_u_u.shape[0]): 
+            norm_u_u = torch.norm(zeta_obs_u_u * grad_x_cur_obs_u_u)
+            scale_factor = 1.0 / norm_u_u
+            zeta_obs_u_u = zeta_obs_u_u * scale_factor
 
-        norm_Sxx_real = torch.norm(zeta_obs_Sxx_real * grad_x_cur_obs_Sxx_real)
-        scale_factor = 1.0 / norm_Sxx_real
-        zeta_obs_Sxx_real = zeta_obs_Sxx_real * scale_factor
-        norm_Sxx_imag = torch.norm(zeta_obs_Sxx_imag * grad_x_cur_obs_Sxx_imag)
-        scale_factor = 1.0 / norm_Sxx_imag
-        zeta_obs_Sxx_imag = zeta_obs_Sxx_imag * scale_factor
+            norm_u_v = torch.norm(zeta_obs_u_v * grad_x_cur_obs_u_v)
+            scale_factor = 1.0 / norm_u_v
+            zeta_obs_u_v = zeta_obs_u_v * scale_factor
 
-        norm_Sxy_real = torch.norm(zeta_obs_Sxy_real * grad_x_cur_obs_Sxy_real)
-        scale_factor = 1.0 / norm_Sxy_real
-        zeta_obs_Sxy_real = zeta_obs_Sxy_real * scale_factor
-        norm_Sxy_imag = torch.norm(zeta_obs_Sxy_imag * grad_x_cur_obs_Sxy_imag)
-        scale_factor = 1.0 / norm_Sxy_imag
-        zeta_obs_Sxy_imag = zeta_obs_Sxy_imag * scale_factor
+            norm_c_flow = torch.norm(zeta_obs_c_flow * grad_x_cur_obs_c_flow)
+            scale_factor = 1.0 / norm_c_flow
+            zeta_obs_c_flow = zeta_obs_c_flow * scale_factor
 
-        norm_Syy_real = torch.norm(zeta_obs_Syy_real * grad_x_cur_obs_Syy_real)
-        scale_factor = 1.0 / norm_Syy_real
-        zeta_obs_Syy_real = zeta_obs_Syy_real * scale_factor
-        norm_Syy_imag = torch.norm(zeta_obs_Syy_imag * grad_x_cur_obs_Syy_imag)
-        scale_factor = 1.0 / norm_Syy_imag
-        zeta_obs_Syy_imag = zeta_obs_Syy_imag * scale_factor
+            zeta_obs_u_u_list.append(zeta_obs_u_u)
+            zeta_obs_u_v_list.append(zeta_obs_u_v)
+            zeta_obs_c_flow_list.append(zeta_obs_c_flow)
 
-        norm_x_u_real = torch.norm(zeta_obs_x_u_real * grad_x_cur_obs_x_u_real)
-        scale_factor = 1.0 / norm_x_u_real
-        zeta_obs_x_u_real = zeta_obs_x_u_real * scale_factor
-        norm_x_u_imag = torch.norm(zeta_obs_x_u_imag * grad_x_cur_obs_x_u_imag)
-        scale_factor = 10.0 / norm_x_u_imag
-        zeta_obs_x_u_imag = zeta_obs_x_u_imag * scale_factor
-
-        norm_x_v_real = torch.norm(zeta_obs_x_v_real * grad_x_cur_obs_x_v_real)
-        scale_factor = 1.0 / norm_x_v_real
-        zeta_obs_x_v_real = zeta_obs_x_v_real * scale_factor
-        norm_x_v_imag = torch.norm(zeta_obs_x_v_imag * grad_x_cur_obs_x_v_imag)
-        scale_factor = 10.0 / norm_x_v_imag
-        zeta_obs_x_v_imag = zeta_obs_x_v_imag * scale_factor
-        
-
-        if i <= 0.8 * num_steps:
-            x_next = (x_next - zeta_obs_rho_water * grad_x_cur_obs_rho_water - zeta_obs_p_t_real * grad_x_cur_obs_p_t_real 
-                    - zeta_obs_p_t_imag * grad_x_cur_obs_p_t_imag - zeta_obs_Sxx_real * grad_x_cur_obs_Sxx_real
-                    - zeta_obs_Sxx_imag * grad_x_cur_obs_Sxx_imag - zeta_obs_Sxy_real * grad_x_cur_obs_Sxy_real
-                    - zeta_obs_Sxy_imag * grad_x_cur_obs_Sxy_imag - zeta_obs_Syy_real * grad_x_cur_obs_Syy_real
-                    - zeta_obs_Syy_imag * grad_x_cur_obs_Syy_imag - zeta_obs_x_u_real * grad_x_cur_obs_x_u_real
-                    - zeta_obs_x_u_imag * grad_x_cur_obs_x_u_imag - zeta_obs_x_v_real * grad_x_cur_obs_x_v_real
-                    - zeta_obs_x_v_imag * grad_x_cur_obs_x_v_imag)
+        if i <= 1 * num_steps:
+            # x_next = (x_next - zeta_obs_S_c * grad_x_cur_obs_S_c - zeta_obs_u_u * grad_x_cur_obs_u_u 
+            #         - zeta_obs_u_v * grad_x_cur_obs_u_v - zeta_obs_c_flow * grad_x_cur_obs_c_flow)
             
+            x_next = (x_next - zeta_obs_S_c * grad_x_cur_obs_S_c)
+            # print(x_next.shape,v_grad_list[0].shape)
+            # exit()
 
+            # for t in  range(len(u_grad_list)):
+            for t in  range(1,2):
+            #     x_next[:,t,:,:] = x_next[:,t,:,:] - zeta_obs_u_u*u_grad_list[t]
+            #     x_next[:,t,:,:] = x_next[:,t,:,:] - zeta_obs_u_v*v_grad_list[t]
+            #     x_next[:,t,:,:] = x_next[:,t,:,:] - zeta_obs_c_flow*c_flow_grad_list[t]
 
-            # x_next = (x_next - zeta_obs_rho_water * grad_x_cur_obs_rho_water - zeta_obs_p_t_real * grad_x_cur_obs_p_t_real 
-            #         - zeta_obs_p_t_imag * grad_x_cur_obs_p_t_imag - zeta_obs_Sxx_real * grad_x_cur_obs_Sxx_real
-            #         - zeta_obs_Sxx_imag * grad_x_cur_obs_Sxx_imag - zeta_obs_Sxy_real * grad_x_cur_obs_Sxy_real
-            #         - zeta_obs_Sxy_imag * grad_x_cur_obs_Sxy_imag - zeta_obs_Syy_real * grad_x_cur_obs_Syy_real
-            #         - zeta_obs_Syy_imag * grad_x_cur_obs_Syy_imag )
-            
-
-            # x_next = (x_next - zeta_obs_x_u_real * grad_x_cur_obs_x_u_real
-            #         - zeta_obs_x_u_imag * grad_x_cur_obs_x_u_imag - zeta_obs_x_v_real * grad_x_cur_obs_x_v_real
-            #         - zeta_obs_x_v_imag * grad_x_cur_obs_x_v_imag)
-
-            # x_next = (x_next - zeta_obs_rho_water * grad_x_cur_obs_rho_water )
-
-            # norm_value = torch.norm(zeta_obs_rho_water * grad_x_cur_obs_rho_water).item()
-            # print(norm_value)
-
-            # x_next = x_next
+                x_next = x_next - zeta_obs_u_u_list[t]*u_grad_list[t]
+                x_next = x_next - zeta_obs_u_v_list[t]*v_grad_list[t]
+                x_next = x_next - zeta_obs_c_flow_list[t]*c_flow_grad_list[t]
 
         else:
             
-            norm_pde_AC_real = torch.norm(zeta_pde_AC_real * grad_x_cur_pde_AC_real)
-            scale_factor = 1 / norm_pde_AC_real
-            zeta_pde_AC_real = zeta_pde_AC_real * scale_factor
-            norm_pde_AC_imag = torch.norm(zeta_pde_AC_imag * grad_x_cur_pde_AC_imag)
-            scale_factor = 1 / norm_pde_AC_imag
-            zeta_pde_AC_imag = zeta_pde_AC_imag * scale_factor
+            norm_pde_Darcy = torch.norm(zeta_pde_Darcy * grad_x_cur_pde_Darcy)
+            scale_factor = 1 / norm_pde_Darcy
+            zeta_pde_Darcy = zeta_pde_Darcy * scale_factor
 
-            norm_pde_structure_real_x = torch.norm(zeta_pde_structure_real_x * grad_x_cur_pde_structure_real_x)
-            scale_factor = 1 / norm_pde_structure_real_x
-            zeta_pde_structure_real_x = zeta_pde_structure_real_x * scale_factor
-            norm_pde_structure_imag_x = torch.norm(zeta_pde_structure_imag_x * grad_x_cur_pde_structure_imag_x)
-            scale_factor = 1 / norm_pde_structure_imag_x
-            zeta_pde_structure_imag_x = zeta_pde_structure_imag_x * scale_factor
-
-            norm_pde_structure_real_y = torch.norm(zeta_pde_structure_real_y * grad_x_cur_pde_structure_real_y)
-            scale_factor = 1 / norm_pde_structure_real_y
-            zeta_pde_structure_real_y = zeta_pde_structure_real_y * scale_factor
-            norm_pde_structure_imag_y = torch.norm(zeta_pde_structure_imag_y * grad_x_cur_pde_structure_imag_y)
-            scale_factor = 1 / norm_pde_structure_imag_y
-            zeta_pde_structure_imag_y = zeta_pde_structure_imag_y * scale_factor
+            norm_pde_TDS = torch.norm(zeta_pde_TDS * grad_x_cur_pde_TDS)
+            scale_factor = 1 / norm_pde_TDS
+            zeta_pde_TDS = zeta_pde_TDS * scale_factor
 
 
-            x_next = (x_next - 0.8* (zeta_obs_rho_water * grad_x_cur_obs_rho_water + zeta_obs_p_t_real * grad_x_cur_obs_p_t_real 
-                    + zeta_obs_p_t_imag * grad_x_cur_obs_p_t_imag + zeta_obs_Sxx_real * grad_x_cur_obs_Sxx_real
-                    + zeta_obs_Sxx_imag * grad_x_cur_obs_Sxx_imag + zeta_obs_Sxy_real * grad_x_cur_obs_Sxy_real
-                    + zeta_obs_Sxy_imag * grad_x_cur_obs_Sxy_imag + zeta_obs_Syy_real * grad_x_cur_obs_Syy_real
-                    + zeta_obs_Syy_imag * grad_x_cur_obs_Syy_imag + zeta_obs_x_u_real * grad_x_cur_obs_x_u_real
-                    + zeta_obs_x_u_imag * grad_x_cur_obs_x_u_imag + zeta_obs_x_v_real * grad_x_cur_obs_x_v_real
-                    + zeta_obs_x_v_imag * grad_x_cur_obs_x_v_imag) - 
-                     0.05* (zeta_pde_AC_real * grad_x_cur_pde_AC_real + zeta_pde_AC_imag * grad_x_cur_pde_AC_imag
-                           + zeta_pde_structure_real_x * grad_x_cur_pde_structure_real_x + zeta_pde_structure_imag_x * grad_x_cur_pde_structure_imag_x
-                           + zeta_pde_structure_real_y * grad_x_cur_pde_structure_real_y + zeta_pde_structure_imag_y * grad_x_cur_pde_structure_imag_y))
+            x_next = (x_next - 0.8* (zeta_obs_S_c * grad_x_cur_obs_S_c + zeta_obs_u_u * grad_x_cur_obs_u_u 
+                    + zeta_obs_u_v * grad_x_cur_obs_u_v + zeta_obs_c_flow * grad_x_cur_obs_c_flow) - 
+                     0.2* (zeta_pde_Darcy * grad_x_cur_pde_Darcy + zeta_pde_TDS * grad_x_cur_pde_TDS))
             
             # norm_value = torch.norm(zeta_pde_NS * grad_x_cur_pde_NS).item()
             # print(norm_value)
 
     ############################ Save the data ############################
     x_final = x_next
-    rho_water_final = x_final[:,0,:,:].unsqueeze(0)
-    p_t_real_final = x_final[:,1,:,:].unsqueeze(0)
-    p_t_imag_final = x_final[:,2,:,:].unsqueeze(0)
-    Sxx_real_final = x_final[:,3,:,:].unsqueeze(0)
-    Sxx_imag_final = x_final[:,4,:,:].unsqueeze(0)
-    Sxy_real_final = x_final[:,5,:,:].unsqueeze(0)
-    Sxy_imag_final = x_final[:,6,:,:].unsqueeze(0)
-    Syy_real_final = x_final[:,7,:,:].unsqueeze(0)
-    Syy_imag_final = x_final[:,8,:,:].unsqueeze(0)
-    x_u_real_final = x_final[:,9,:,:].unsqueeze(0)
-    x_u_imag_final = x_final[:,10,:,:].unsqueeze(0)
-    x_v_real_final = x_final[:,11,:,:].unsqueeze(0)
-    x_v_imag_final = x_final[:,12,:,:].unsqueeze(0)
+
+
+    # S_c_final = x_final[0 ,0,:,:].unsqueeze(0)
+    # u_u_final = x_final[0, [1] + list(range(4, 14)), :, :].unsqueeze(0)  # shape: [11, 128, 128]
+    # u_v_final = x_final[0, [2] + list(range(14, 24)), :, :].unsqueeze(0)
+    # c_flow_final = x_final[0, [3] + list(range(24, 34)), :, :].unsqueeze(0)
+
+    S_c_final = x_final[0 ,0,:,:].unsqueeze(0)
+    u_u_final = x_final[0, [1] + list(range(4, 5)), :, :].unsqueeze(0)  # shape: [2, 128, 128]
+    u_v_final = x_final[0, [2] + list(range(5, 6)), :, :].unsqueeze(0)
+    c_flow_final = x_final[0, [3] + list(range(6, 7)), :, :].unsqueeze(0)
     
+    S_c_final = invnormalize(S_c_final, *ranges['S_c']).to(torch.float64)
+    u_u_final = invnormalize(u_u_final, *ranges['u_u']).to(torch.float64)
+    u_v_final = invnormalize(u_v_final, *ranges['u_v']).to(torch.float64)
+    c_flow_final = invnormalize(c_flow_final, *ranges['c_flow']).to(torch.float64)
 
-    rho_water_final = ((rho_water_final+0.9)/1.8 *(max_rho_water - min_rho_water) + min_rho_water).to(torch.float64)
-    p_t_real_final = ((p_t_real_final+0.9)/1.8 *(range_data['p_t']['max_real'] - range_data['p_t']['min_real']) + range_data['p_t']['min_real']).to(torch.float64)
-    p_t_imag_final = ((p_t_imag_final+0.9)/1.8 *(range_data['p_t']['max_imag'] - range_data['p_t']['min_imag']) + range_data['p_t']['min_imag']).to(torch.float64)
-    Sxx_real_final = ((Sxx_real_final+0.9)/1.8 *(range_data['Sxx']['max_real'] - range_data['Sxx']['min_real']) + range_data['Sxx']['min_real']).to(torch.float64)
-    Sxx_imag_final = ((Sxx_imag_final+0.9)/1.8 *(range_data['Sxx']['max_imag'] - range_data['Sxx']['min_imag']) + range_data['Sxx']['min_imag']).to(torch.float64)
-    Sxy_real_final = ((Sxy_real_final+0.9)/1.8 *(range_data['Sxy']['max_real'] - range_data['Sxy']['min_real']) + range_data['Sxy']['min_real']).to(torch.float64)
-    Sxy_imag_final = ((Sxy_imag_final+0.9)/1.8 *(range_data['Sxy']['max_imag'] - range_data['Sxy']['min_imag']) + range_data['Sxy']['min_imag']).to(torch.float64)
-    Syy_real_final = ((Syy_real_final+0.9)/1.8 *(range_data['Syy']['max_real'] - range_data['Syy']['min_real']) + range_data['Syy']['min_real']).to(torch.float64)
-    Syy_imag_final = ((Syy_imag_final+0.9)/1.8 *(range_data['Syy']['max_imag'] - range_data['Syy']['min_imag']) + range_data['Syy']['min_imag']).to(torch.float64)
-    x_u_real_final = ((x_u_real_final+0.9)/1.8 *(range_data['x_u']['max_real'] - range_data['x_u']['min_real']) + range_data['x_u']['min_real']).to(torch.float64)
-    x_u_imag_final = ((x_u_imag_final+0.9)/1.8 *(range_data['x_u']['max_imag'] - range_data['x_u']['min_imag']) + range_data['x_u']['min_imag']).to(torch.float64)
-    x_v_real_final = ((x_v_real_final+0.9)/1.8 *(range_data['x_v']['max_real'] - range_data['x_v']['min_real']) + range_data['x_v']['min_real']).to(torch.float64)
-    x_v_imag_final = ((x_v_imag_final+0.9)/1.8 *(range_data['x_v']['max_imag'] - range_data['x_v']['min_imag']) + range_data['x_v']['min_imag']).to(torch.float64)
 
-    p_t_final = torch.complex(p_t_real_final, p_t_imag_final)
-    Sxx_final = torch.complex(Sxx_real_final, Sxx_imag_final)
-    Sxy_final = torch.complex(Sxy_real_final, Sxy_imag_final)
-    Syy_final = torch.complex(Syy_real_final, Syy_imag_final)
-    x_u_final = torch.complex(x_u_real_final, x_u_imag_final)
-    x_v_final = torch.complex(x_v_real_final, x_v_imag_final)
-
-    relative_error_rho_water = torch.norm(rho_water_final - rho_water_GT, 2) / torch.norm(rho_water_GT, 2)
-    relative_error_p_t = torch.norm(p_t_final - p_t_GT, 2) / torch.norm(p_t_GT, 2)
-    relative_error_Sxx = torch.norm(Sxx_final - Sxx_GT, 2) / torch.norm(Sxx_GT, 2)
-    relative_error_Sxy = torch.norm(Sxy_final - Sxy_GT, 2) / torch.norm(Sxy_GT, 2)
-    relative_error_Syy = torch.norm(Syy_final - Syy_GT, 2) / torch.norm(Syy_GT, 2)
-    relative_error_x_u = torch.norm(x_u_final - x_u_GT, 2) / torch.norm(x_u_GT, 2)
-    relative_error_x_v = torch.norm(x_v_final - x_v_GT, 2) / torch.norm(x_v_GT, 2)
+    relative_error_S_c = torch.norm(S_c_final - S_c_GT, 2) / torch.norm(S_c_GT, 2)
+    relative_error_u_u = torch.norm(u_u_final - u_u_GT, 2) / torch.norm(u_u_GT, 2)
+    relative_error_u_v = torch.norm(u_v_final - u_v_GT, 2) / torch.norm(u_v_GT, 2)
+    relative_error_c_flow = torch.norm(c_flow_final - c_flow_GT, 2) / torch.norm(c_flow_GT, 2)
     
     # scipy.io.savemat('T_final.mat', {'T_final': T_final.cpu().detach().numpy()})
 
     # print(u_flow_final)
     # exit()
 
-    print(f'Relative error of rho_water: {relative_error_rho_water}')
-    print(f'Relative error of p_t: {relative_error_p_t}')
-    print(f'Relative error of Sxx: {relative_error_Sxx}')
-    print(f'Relative error of Sxy: {relative_error_Sxy}')
-    print(f'Relative error of Syy: {relative_error_Syy}')
-    print(f'Relative error of x_u: {relative_error_x_u}')
-    print(f'Relative error of x_v: {relative_error_x_v}')
+    print(f'Relative error of S_c: {relative_error_S_c}')
+    print(f'Relative error of u_u: {relative_error_u_u}')
+    print(f'Relative error of u_v: {relative_error_u_v}')
+    print(f'Relative error of c_flow: {relative_error_c_flow}')
 
-    rho_water_final = rho_water_final.detach().cpu().numpy()
-    p_t_final = p_t_final.detach().cpu().numpy()
-    Sxx_final = Sxx_final.detach().cpu().numpy()
-    Sxy_final = Sxy_final.detach().cpu().numpy()
-    Syy_final = Syy_final.detach().cpu().numpy()
-    x_u_final = x_u_final.detach().cpu().numpy()
-    x_v_final = x_v_final.detach().cpu().numpy()
 
-    scipy.io.savemat('VA_results.mat', {'rho_water': rho_water_final, 'p_t': p_t_final, 'Sxx': Sxx_final, 'Sxy': Sxy_final, 'Syy': Syy_final, 'x_u': x_u_final, 'x_v': x_v_final})
+    S_c_final = S_c_final.detach().cpu().numpy()
+    u_u_final = u_u_final.detach().cpu().numpy()
+    u_v_final = u_v_final.detach().cpu().numpy()
+    c_flow_final = c_flow_final.detach().cpu().numpy()
+
+    scipy.io.savemat('Elder_results.mat', {'S_c': S_c_final, 'u_u': u_u_final, 'u_v': u_v_final, 'c_flow': c_flow_final})
     print('Done.')

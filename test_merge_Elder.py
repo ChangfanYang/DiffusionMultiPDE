@@ -11,8 +11,12 @@ save_path = "test_merge_elder.png"
 # === 加载归一化后数据 ===
 combined_data = np.load(merged_file)
 # pred_fields = combined_data[:, :, 0:4]   # S_c, u_u_0, u_v_0, c_flow_0
-pred_fields = combined_data[:, :, [0, 4, 14, 24]] # S_c_0, u_u_1, u_v_1, c_flow_1
+# pred_fields = combined_data[:, :, [0, 4, 14, 24]] # S_c_0, u_u_1, u_v_1, c_flow_1
+# pred_fields = combined_data[:, :, [0, 5, 15, 25]] # S_c_0, u_u_2, u_v_2, c_flow_2
+# pred_fields = combined_data[:, :, [0, 6, 16, 26]] # S_c_0, u_u_3, u_v_3, c_flow_3
+# pred_fields = combined_data[:, :, [0, 13, 23, 33]] # S_c_0, u_u_10, u_v_10, c_flow_10
 
+pred_fields = combined_data[:, :, :] # S_c_0, u_u_10, u_v_10, c_flow_10
 
 # === 加载归一化范围 ===
 ranges = {
@@ -37,9 +41,9 @@ denorm_fields = [
 # === 加载 Ground Truth 原始数据 ===
 gt_fields = [
     list(loadmat(os.path.join(gt_base_path, "S_c", "1", "0.mat")).values())[-1],
-    list(loadmat(os.path.join(gt_base_path, "u_u", "1", "1.mat")).values())[-1],
-    list(loadmat(os.path.join(gt_base_path, "u_v", "1", "1.mat")).values())[-1],
-    list(loadmat(os.path.join(gt_base_path, "c_flow", "1", "1.mat")).values())[-1],
+    list(loadmat(os.path.join(gt_base_path, "u_u", "1", "10.mat")).values())[-1],
+    list(loadmat(os.path.join(gt_base_path, "u_v", "1", "10.mat")).values())[-1],
+    list(loadmat(os.path.join(gt_base_path, "c_flow", "1", "10.mat")).values())[-1],
 ]
 
 # === 可视化对比 ===

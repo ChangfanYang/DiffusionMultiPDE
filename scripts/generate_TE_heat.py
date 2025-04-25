@@ -252,7 +252,7 @@ def generate_TE_heat(config):
 
         
         L_obs_mater = torch.norm(observation_loss_mater, 2)/500
-        L_obs_Ez = torch.norm(observation_loss_Ez, 2)/500
+        L_obs_Ez = torch.norm(observation_loss_Ez, 2)/500  # 拆成实部和虚部
         L_obs_T = torch.norm(observation_loss_T, 2)/500
 
         # print(L_pde)

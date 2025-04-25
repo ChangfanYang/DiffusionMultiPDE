@@ -6,9 +6,9 @@ from scipy.io import loadmat
 import time
 start_time = time.time()
 
-num_samples = 10
-time_steps = 10
-H, W, C = 128, 128, 34
+num_samples = 1000
+time_steps = 1
+H, W, C = 128, 128, 7
 
 output_base_path = "/data/yangchangfan/DiffusionPDE/data/Elder-merged/merge_{}.npy"
 # Create the output directory if it doesn't exist
@@ -35,7 +35,7 @@ def minmax_normalize(x, min_val, max_val):
 
 # -------------------- 主循环 --------------------
 for i in range(1, num_samples + 1):
-    combined_data = np.zeros((H, W, C), dtype=np.float32)
+    combined_data = np.zeros((H, W, C), dtype=np.float64)
 
     # ---------- S_c ----------
     path_Sc = os.path.join(data_base_path, 'S_c', str(i), '0.mat')
@@ -62,7 +62,7 @@ for i in range(1, num_samples + 1):
             data_t = loadmat(path_t)
             data_t = list(data_t.values())[-1]
             data_t_n = minmax_normalize(data_t, min_val, max_val)
-            ch_idx = 4 + var_idx * 10 + (t - 1)
+            ch_idx = 4 + var_idx * time_steps + (t - 1)
             combined_data[:, :, ch_idx] = data_t_n
 
     # ---------- 保存 .npy ----------

@@ -39,7 +39,7 @@ def get_Elder_loss(S_c, u_u, u_v, c_flow, S_c_GT, u_u_GT, u_v_GT, c_flow_GT, S_c
 
     delta_x = (300/128) # 1m
     delta_y = (150/128) # 1m
-    delta_t = 2 * 356 * 24 * 60 *60 # 2 a
+    delta_t = 2 * 365 * 24 * 60 *60 # 2 a
 
     # 空间导数核 (for conv2d)
     deriv_x = torch.tensor([[-1, 0, 1]], dtype=torch.float64, device=device).view(1, 1, 1, 3) / (2 * delta_x)

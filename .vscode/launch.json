@@ -2,14 +2,14 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Test NS_noBC",
+            "name": "Python: Test Elder",
             "type": "debugpy",
             "request": "launch",
             "program": "/home/yangchangfan/CODE/DiffusionPDE/generate_pde.py",
             "console": "integratedTerminal",
             "args": [
    
-                    "--config", "/home/yangchangfan/CODE/DiffusionPDE/configs/ns-nonbounded.yaml"
+                    "--config", "/home/yangchangfan/CODE/DiffusionPDE/configs/Elder.yaml"
             ],
             "env": {
                 "PYTHONUNBUFFERED": "1",

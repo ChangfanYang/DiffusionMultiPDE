@@ -6,9 +6,9 @@ from scipy.io import loadmat
 import time
 start_time = time.time()
 
-num_samples = 10
-time_steps = 10
-H, W, C = 128, 128, 34
+num_samples = 1000
+time_steps = 1
+H, W, C = 128, 128, 4
 
 output_base_path = "/data/yangchangfan/DiffusionPDE/data/Elder-merged/merge_{}.npy"
 # Create the output directory if it doesn't exist
@@ -35,7 +35,7 @@ def minmax_normalize(x, min_val, max_val):
 
 # -------------------- 主循环 --------------------
 for i in range(1, num_samples + 1):
-    combined_data = np.zeros((H, W, C), dtype=np.float32)
+    combined_data = np.zeros((H, W, C), dtype=np.float64)
 
     # ---------- S_c ----------
     path_Sc = os.path.join(data_base_path, 'S_c', str(i), '0.mat')
@@ -49,20 +49,15 @@ for i in range(1, num_samples + 1):
     for var_idx, var in enumerate(var_names):
         min_val, max_val = ranges[var]
 
-        # 初始场
-        path_0 = os.path.join(data_base_path, var, str(i), '0.mat')
-        data0 = loadmat(path_0)
-        data0 = list(data0.values())[-1]
-        data0_n = minmax_normalize(data0, min_val, max_val)
-        combined_data[:, :, 1 + var_idx] = data0_n
 
         # 时域场 t=1~10
-        for t in range(1, time_steps + 1):
+        # for t in range(1, time_steps + 1):
+        for t in range(10,11):   
             path_t = os.path.join(data_base_path, var, str(i), f'{t}.mat')
             data_t = loadmat(path_t)
             data_t = list(data_t.values())[-1]
             data_t_n = minmax_normalize(data_t, min_val, max_val)
-            ch_idx = 4 + var_idx * 10 + (t - 1)
+            ch_idx = 1 + var_idx * time_steps 
             combined_data[:, :, ch_idx] = data_t_n
 
     # ---------- 保存 .npy ----------
