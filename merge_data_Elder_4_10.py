@@ -6,9 +6,9 @@ from scipy.io import loadmat
 import time
 start_time = time.time()
 
-num_samples = 10
-time_steps = 11
-H, W, C = 128, 128, 34
+num_samples = 1000
+time_steps = 1
+H, W, C = 128, 128, 4
 
 output_base_path = "/data/yangchangfan/DiffusionPDE/data/Elder-merged/merge_{}.npy"
 # Create the output directory if it doesn't exist
@@ -17,10 +17,10 @@ os.makedirs(os.path.dirname(output_base_path), exist_ok=True)
 data_base_path = "/data/yangchangfan/DiffusionPDE/data/training/Elder/"
 
 # -------------------- 加载归一化范围 --------------------
-range_allS_c = sio.loadmat(os.path.join(data_base_path, "S_c/range_S_c_t.mat"))['range_S_c_t'][0]
-range_allu_u = sio.loadmat(os.path.join(data_base_path, "u_u/range_u_u_t.mat"))['range_u_u_t']
-range_allu_v = sio.loadmat(os.path.join(data_base_path, "u_v/range_u_v_t.mat"))['range_u_v_t']
-range_allc_flow = sio.loadmat(os.path.join(data_base_path, "c_flow/range_c_flow_t.mat"))['range_c_flow_t']
+range_allS_c = sio.loadmat(os.path.join(data_base_path, "S_c/range_allS_c.mat"))['range_allS_c'][0]
+range_allu_u = sio.loadmat(os.path.join(data_base_path, "u_u/range_allu_u.mat"))['range_allu_u'][0]
+range_allu_v = sio.loadmat(os.path.join(data_base_path, "u_v/range_allu_v.mat"))['range_allu_v'][0]
+range_allc_flow = sio.loadmat(os.path.join(data_base_path, "c_flow/range_allc_flow.mat"))['range_allc_flow'][0]
 
 ranges = {
     'S_c': range_allS_c,
@@ -31,11 +31,11 @@ ranges = {
 
 
 def minmax_normalize(x, min_val, max_val):
-    return -1 + 2 * (x - min_val) / (max_val - min_val)
+    return -0.9 + 1.8 * (x - min_val) / (max_val - min_val)
 
 # -------------------- 主循环 --------------------
 for i in range(1, num_samples + 1):
-    combined_data = np.zeros((H, W, C), dtype=np.float32)
+    combined_data = np.zeros((H, W, C), dtype=np.float64)
 
     # ---------- S_c ----------
     path_Sc = os.path.join(data_base_path, 'S_c', str(i), '0.mat')
@@ -46,22 +46,23 @@ for i in range(1, num_samples + 1):
 
     # ---------- u_u, u_v, c_flow ----------
     var_names = ['u_u', 'u_v', 'c_flow']
+    for var_idx, var in enumerate(var_names):
+        min_val, max_val = ranges[var]
 
-    for t in range(0, time_steps ):
-        # 时域场 t=0~10
-        for var_idx, var in enumerate(var_names):
-            min_val, max_val = ranges[var][t]
-
+        # 时域场 t=1~10
+        # for t in range(1, time_steps + 1):
+        for t in range(10,11):   
             path_t = os.path.join(data_base_path, var, str(i), f'{t}.mat')
             data_t = loadmat(path_t)
             data_t = list(data_t.values())[-1]
             data_t_n = minmax_normalize(data_t, min_val, max_val)
-            ch_idx = 1 + var_idx * time_steps + t
+            ch_idx = 1 + var_idx * time_steps 
             combined_data[:, :, ch_idx] = data_t_n
 
-    # ---------- 保存 .npy ----------
-    out_path = output_base_path.format(i)
-    np.save(out_path, combined_data)
+    # 复制数据并保存
+    for repeat_idx in range(10):  # 每个样本复制10次
+        out_path = output_base_path.format((i - 1) * 10 + repeat_idx + 1)
+        np.save(out_path, combined_data)
 
     # 打印部分信息
     if i % 200 == 0:
@@ -69,5 +70,4 @@ for i in range(1, num_samples + 1):
 
 
 print("Finished processing all files.")
-print(f"运行时间: {time.time() - start_time} 秒")    
-
+print(f"运行时间: {time.time() - start_time} 秒")

@@ -154,18 +154,18 @@ import os
 # # print("Content of 'u':", u)
 
 
-data_Elder = np.load("/data/yangchangfan/DiffusionPDE/data/Elder-merged/merge_1.npy")
+data_Elder = np.load("/data/yangchangfan/DiffusionPDE/data/Elder-merged/merge_4.npy")
 
 print(data_Elder.shape)
 # exit()
 
 
 plt.figure(figsize=(12, 8))  # 可以调整窗口大小
-
+channels = [0, 2, 13, 24]
 # 绘制子图
-for i in range(4):
+for i, channel in enumerate(channels):
     plt.subplot(1, 4, i + 1)  # 创建 2x2 的子图布局
-    plt.imshow(data_Elder[:, :, i])  # 绘制第 i 个通道的数据
+    plt.imshow(data_Elder[:, :, channel])  # 绘制第 i 个通道的数据
     plt.title(f"Channel {i}")  # 添加标题
     plt.colorbar()  # 添加颜色条（可选）
 
