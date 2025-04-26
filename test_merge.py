@@ -154,14 +154,15 @@ import os
 # # print("Content of 'u':", u)
 
 
-data_Elder = np.load("/data/yangchangfan/DiffusionPDE/data/Elder-merged/merge_4.npy")
+data_Elder = np.load("/data/yangchangfan/DiffusionPDE/data/Elder-merged/merge_2.npy")
 
 print(data_Elder.shape)
 # exit()
 
 
 plt.figure(figsize=(12, 8))  # 可以调整窗口大小
-channels = [0, 2, 13, 24]
+channels = [0, 1, 12, 23]
+# channels = [0, 3, 14, 25]
 # 绘制子图
 for i, channel in enumerate(channels):
     plt.subplot(1, 4, i + 1)  # 创建 2x2 的子图布局

@@ -6,7 +6,7 @@ from scipy.io import loadmat
 import time
 start_time = time.time()
 
-num_samples = 10
+num_samples = 1000
 time_steps = 11
 H, W, C = 128, 128, 34
 
@@ -18,9 +18,9 @@ data_base_path = "/data/yangchangfan/DiffusionPDE/data/training/Elder/"
 
 # -------------------- 加载归一化范围 --------------------
 range_allS_c = sio.loadmat(os.path.join(data_base_path, "S_c/range_S_c_t.mat"))['range_S_c_t'][0]
-range_allu_u = sio.loadmat(os.path.join(data_base_path, "u_u/range_u_u_t.mat"))['range_u_u_t']
-range_allu_v = sio.loadmat(os.path.join(data_base_path, "u_v/range_u_v_t.mat"))['range_u_v_t']
-range_allc_flow = sio.loadmat(os.path.join(data_base_path, "c_flow/range_c_flow_t.mat"))['range_c_flow_t']
+range_allu_u = sio.loadmat(os.path.join(data_base_path, "u_u/range_u_u_t_999.mat"))['range_u_u_t_999']
+range_allu_v = sio.loadmat(os.path.join(data_base_path, "u_v/range_u_v_t_99.mat"))['range_u_v_t_99']
+range_allc_flow = sio.loadmat(os.path.join(data_base_path, "c_flow/range_c_flow_t_99.mat"))['range_c_flow_t_99']
 
 ranges = {
     'S_c': range_allS_c,
@@ -31,7 +31,7 @@ ranges = {
 
 
 def minmax_normalize(x, min_val, max_val):
-    return -1 + 2 * (x - min_val) / (max_val - min_val)
+    return -0.9 + 1.8 * (x - min_val) / (max_val - min_val)
 
 # -------------------- 主循环 --------------------
 for i in range(1, num_samples + 1):

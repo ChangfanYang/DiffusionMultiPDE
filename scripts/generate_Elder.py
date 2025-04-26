@@ -125,18 +125,13 @@ def generate_Elder(config):
     # ---------- 读取初始场 + 时域场 ----------
     var_names = ['u_u', 'u_v', 'c_flow']
     for var_idx, var in enumerate(var_names):
-       # 初始场（通道 1 ~ 3）
-        path_0 = os.path.join(data_test_path, var, str(offset), '0.mat')
-        data0 = loadmat(path_0)
-        data0 = list(data0.values())[-1]
-        combined_data_GT[1 + var_idx, :, :] = data0
 
-       # 时域场 t=1~10（通道 4 ~ 33）
-        for t in range(1, time_steps + 1):
+       # 时域场 t=0~10（通道 4 ~ 33）
+        for t in range(0, time_steps):
             path_t = os.path.join(data_test_path, var, str(offset), f'{t}.mat')
             data_t = loadmat(path_t)
             data_t = list(data_t.values())[-1]
-            ch_idx = 4 + var_idx * time_steps + (t - 1)
+            ch_idx = 1 + var_idx * time_steps + t
             combined_data_GT[ch_idx, :, : ] = data_t
 
     combined_data_GT = torch.tensor(combined_data_GT, dtype=torch.float64, device=device)
@@ -146,10 +141,16 @@ def generate_Elder(config):
     # u_v_GT = torch.stack([combined_data_GT[i] for i in [2] + list(range(14, 24))], dim=0)
     # c_flow_GT = torch.stack([combined_data_GT[i] for i in [3] + list(range(24, 34))], dim=0)
 
-    S_c_GT = combined_data_GT[0].unsqueeze(0).expand(2, -1, -1)
-    u_u_GT = torch.stack([combined_data_GT[i] for i in [1] + list(range(4, 5))], dim=0)  # [2, H, W]
-    u_v_GT = torch.stack([combined_data_GT[i] for i in [2] + list(range(5, 6))], dim=0)
-    c_flow_GT = torch.stack([combined_data_GT[i] for i in [3] + list(range(6, 7))], dim=0)
+    # S_c_GT = combined_data_GT[0].unsqueeze(0).expand(2, -1, -1)
+    # u_u_GT = torch.stack([combined_data_GT[i] for i in [1] + list(range(4, 5))], dim=0)  # [2, H, W]
+    # u_v_GT = torch.stack([combined_data_GT[i] for i in [2] + list(range(5, 6))], dim=0)
+    # c_flow_GT = torch.stack([combined_data_GT[i] for i in [3] + list(range(6, 7))], dim=0)
+
+    S_c_GT = combined_data_GT[0].unsqueeze(0)
+    u_u_GT = combined_data_GT[1:12]
+    u_v_GT = combined_data_GT[12:23]
+    c_flow_GT = combined_data_GT[23:34]
+
     
     batch_size = config['generate']['batch_size']
     seed = config['generate']['seed']
@@ -213,20 +214,25 @@ def generate_Elder(config):
         # u_v_N = x_N[0, [2] + list(range(14, 24)), :, :] 
         # c_flow_N = x_N[0, [3] + list(range(24, 34)), :, :] 
 
-        # Scale the data back
-        S_c_N = x_N[0 ,0,:,:].unsqueeze(0).expand(2, -1, -1)
-        u_u_N = x_N[0, [1] + list(range(4, 5)), :, :]  # shape: [2, 128, 128]
-        u_v_N = x_N[0, [2] + list(range(5, 6)), :, :] 
-        c_flow_N = x_N[0, [3] + list(range(6, 7)), :, :] 
+        # # Scale the data back
+        # S_c_N = x_N[0 ,0,:,:].unsqueeze(0).expand(2, -1, -1)
+        # u_u_N = x_N[0, [1] + list(range(4, 5)), :, :]  # shape: [2, 128, 128]
+        # u_v_N = x_N[0, [2] + list(range(5, 6)), :, :] 
+        # c_flow_N = x_N[0, [3] + list(range(6, 7)), :, :] 
 
+        # Scale the data back
+        S_c_N = x_N[0 ,0,:,:].unsqueeze(0)
+        u_u_N = x_N[0, 1:12, :, :]  # shape: [2, 128, 128]
+        u_v_N = x_N[0, 12:23, :, :] 
+        c_flow_N = x_N[0, 23:34, :, :] 
 
         data_base_path = "/data/yangchangfan/DiffusionPDE/data/training/Elder/"
 
          # -------------------- 加载归一化范围 --------------------
-        range_allS_c = sio.loadmat(os.path.join(data_base_path, "S_c/range_allS_c.mat"))['range_allS_c'][0]
-        range_allu_u = sio.loadmat(os.path.join(data_base_path, "u_u/range_allu_u.mat"))['range_allu_u'][0]
-        range_allu_v = sio.loadmat(os.path.join(data_base_path, "u_v/range_allu_v.mat"))['range_allu_v'][0]
-        range_allc_flow = sio.loadmat(os.path.join(data_base_path, "c_flow/range_allc_flow.mat"))['range_allc_flow'][0]
+        range_allS_c = sio.loadmat(os.path.join(data_base_path, "S_c/range_S_c_t.mat"))['range_S_c_t']
+        range_allu_u = sio.loadmat(os.path.join(data_base_path, "u_u/range_u_u_t_999.mat"))['range_u_u_t_999']
+        range_allu_v = sio.loadmat(os.path.join(data_base_path, "u_v/range_u_v_t_99.mat"))['range_u_v_t_99']
+        range_allc_flow = sio.loadmat(os.path.join(data_base_path, "c_flow/range_c_flow_t_99.mat"))['range_c_flow_t_99']
 
         ranges = {
             'S_c': range_allS_c,
@@ -235,11 +241,12 @@ def generate_Elder(config):
             'c_flow': range_allc_flow,
         }
 
+        S_c_N[0,:,:] = invnormalize(S_c_N[0,:,:], *ranges['S_c'][0,:]).to(torch.float64)
+        for t in range(0, time_steps ):
 
-        S_c_N = invnormalize(S_c_N, *ranges['S_c']).to(torch.float64)
-        u_u_N = invnormalize(u_u_N, *ranges['u_u']).to(torch.float64)
-        u_v_N = invnormalize(u_v_N, *ranges['u_v']).to(torch.float64)
-        c_flow_N = invnormalize(c_flow_N, *ranges['c_flow']).to(torch.float64)
+            u_u_N[t,:,:] = invnormalize(u_u_N[t,:,:], *ranges['u_u'][t,:]).to(torch.float64)
+            u_v_N[t,:,:] = invnormalize(u_v_N[t,:,:], *ranges['u_v'][t,:]).to(torch.float64)
+            c_flow_N[t,:,:] = invnormalize(c_flow_N[t,:,:], *ranges['c_flow'][t,:]).to(torch.float64)
 
         # Compute the loss
         pde_loss_Darcy, pde_loss_TDS, observation_loss_S_c, observation_loss_u_u, observation_loss_u_v, observation_loss_c_flow = get_Elder_loss(S_c_N, u_u_N, u_v_N, c_flow_N, S_c_GT, u_u_GT, u_v_GT, c_flow_GT, known_index_S_c, known_index_u_u, known_index_u_v, known_index_c_flow, device=device)
@@ -257,18 +264,18 @@ def generate_Elder(config):
         u_grad_list = []
         v_grad_list = []
         c_flow_grad_list = []
-        for t in range(observation_loss_u_u.shape[0]):
-            L_obs_u_u_0 = torch.norm(observation_loss_u_u[t,:,:], 2)/500
-            L_obs_u_v_0 = torch.norm(observation_loss_u_v[t,:,:], 2)/500
-            L_obs_c_flow_0 = torch.norm(observation_loss_c_flow[t,:,:], 2)/500
+        for t in range(0, time_steps ):
+            L_obs_u_u = torch.norm(observation_loss_u_u[t,:,:], 2)/500
+            L_obs_u_v = torch.norm(observation_loss_u_v[t,:,:], 2)/500
+            L_obs_c_flow = torch.norm(observation_loss_c_flow[t,:,:], 2)/500
 
-            u_loss_list.append(L_obs_u_u_0)
-            v_loss_list.append(L_obs_u_v_0)
-            c_flow_loss_list.append(L_obs_c_flow_0)
+            u_loss_list.append(L_obs_u_u)
+            v_loss_list.append(L_obs_u_v)
+            c_flow_loss_list.append(L_obs_c_flow)
     
-            grad_x_cur_obs_u_u = torch.autograd.grad(outputs=L_obs_u_u_0, inputs=x_cur, retain_graph=True)[0]
-            grad_x_cur_obs_u_v = torch.autograd.grad(outputs=L_obs_u_v_0, inputs=x_cur, retain_graph=True)[0]
-            grad_x_cur_obs_c_flow = torch.autograd.grad(outputs=L_obs_c_flow_0, inputs=x_cur, retain_graph=True)[0]
+            grad_x_cur_obs_u_u = torch.autograd.grad(outputs=L_obs_u_u, inputs=x_cur, retain_graph=True)[0]
+            grad_x_cur_obs_u_v = torch.autograd.grad(outputs=L_obs_u_v, inputs=x_cur, retain_graph=True)[0]
+            grad_x_cur_obs_c_flow = torch.autograd.grad(outputs=L_obs_c_flow, inputs=x_cur, retain_graph=True)[0]
             u_grad_list.append(grad_x_cur_obs_u_u)
             v_grad_list.append(grad_x_cur_obs_u_v)
             c_flow_grad_list.append(grad_x_cur_obs_c_flow)
@@ -278,9 +285,9 @@ def generate_Elder(config):
         print(L_pde_TDS)
 
         print(L_obs_S_c)
-        # print(L_obs_u_u)
-        # print(L_obs_u_v)
-        # print(L_obs_c_flow)
+        print(L_obs_u_u)
+        print(L_obs_u_v)
+        print(L_obs_c_flow)
 
 
         output_file_path = "inference_losses.jsonl"
@@ -324,7 +331,7 @@ def generate_Elder(config):
         scale_factor = 1.0 / norm_S_c
         zeta_obs_S_c = zeta_obs_S_c * scale_factor
 
-        for t in range(observation_loss_u_u.shape[0]): 
+        for t in range(0, time_steps ):
             norm_u_u = torch.norm(zeta_obs_u_u * grad_x_cur_obs_u_u)
             scale_factor = 1.0 / norm_u_u
             zeta_obs_u_u = zeta_obs_u_u * scale_factor
@@ -350,7 +357,7 @@ def generate_Elder(config):
             # exit()
 
             # for t in  range(len(u_grad_list)):
-            for t in  range(1,2):
+            for t in  range(0, time_steps ):
             #     x_next[:,t,:,:] = x_next[:,t,:,:] - zeta_obs_u_u*u_grad_list[t]
             #     x_next[:,t,:,:] = x_next[:,t,:,:] - zeta_obs_u_v*v_grad_list[t]
             #     x_next[:,t,:,:] = x_next[:,t,:,:] - zeta_obs_c_flow*c_flow_grad_list[t]
@@ -386,15 +393,16 @@ def generate_Elder(config):
     # u_v_final = x_final[0, [2] + list(range(14, 24)), :, :].unsqueeze(0)
     # c_flow_final = x_final[0, [3] + list(range(24, 34)), :, :].unsqueeze(0)
 
-    S_c_final = x_final[0 ,0,:,:].unsqueeze(0)
-    u_u_final = x_final[0, [1] + list(range(4, 5)), :, :].unsqueeze(0)  # shape: [2, 128, 128]
-    u_v_final = x_final[0, [2] + list(range(5, 6)), :, :].unsqueeze(0)
-    c_flow_final = x_final[0, [3] + list(range(6, 7)), :, :].unsqueeze(0)
+    S_c_final = x_final[0, 0,:,:].unsqueeze(0)
+    u_u_final = x_final[0, 1:12, :, :].unsqueeze(0)  # shape: [2, 128, 128]
+    u_v_final = x_final[0, 12:23, :, :].unsqueeze(0)
+    c_flow_final = x_final[0, 23:34, :, :].unsqueeze(0)
     
-    S_c_final = invnormalize(S_c_final, *ranges['S_c']).to(torch.float64)
-    u_u_final = invnormalize(u_u_final, *ranges['u_u']).to(torch.float64)
-    u_v_final = invnormalize(u_v_final, *ranges['u_v']).to(torch.float64)
-    c_flow_final = invnormalize(c_flow_final, *ranges['c_flow']).to(torch.float64)
+    for t in range(0, time_steps ):
+        S_c_final[0,:,:] = invnormalize(S_c_final[0,:,:], *ranges['S_c'][0,:]).to(torch.float64)
+        u_u_final[0,t,:,:] = invnormalize(u_u_final[0,t,:,:], *ranges['u_u'][t,:]).to(torch.float64)
+        u_v_final[0,t,:,:] = invnormalize(u_v_final[0,t,:,:], *ranges['u_v'][t,:]).to(torch.float64)
+        c_flow_final[0,t,:,:] = invnormalize(c_flow_final[0,t,:,:], *ranges['c_flow'][t,:]).to(torch.float64)
 
 
     relative_error_S_c = torch.norm(S_c_final - S_c_GT, 2) / torch.norm(S_c_GT, 2)

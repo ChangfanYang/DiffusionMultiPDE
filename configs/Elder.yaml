@@ -2,14 +2,14 @@ data:
   name: 'Elder'
   datapath: '/data/yangchangfan/DiffusionPDE/data/testing/Elder'
   offset: 
-    - 1002
+    - 1001
   time_steps:
-    - 10
+    - 11
 
 
 test:
-  pre-trained: "/home/yangchangfan/CODE/DiffusionPDE/pretrained-Elder/00003--uncond-ddpmpp-edm-gpus7-batch84-fp32/network-snapshot-010000.pkl"
-  iterations: 1000
+  pre-trained: "/home/yangchangfan/CODE/DiffusionPDE/pretrained-Elder/00009--uncond-ddpmpp-edm-gpus8-batch96-fp32/network-snapshot-004032.pkl"
+  iterations: 5
 generate:
   seed: 0
   device: 'cuda'
