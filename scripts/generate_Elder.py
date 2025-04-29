@@ -333,15 +333,15 @@ def generate_Elder(config):
 
         for t in range(0, time_steps ):
             norm_u_u = torch.norm(zeta_obs_u_u * grad_x_cur_obs_u_u)
-            scale_factor = 1.0 / norm_u_u
+            scale_factor = 1 / norm_u_u
             zeta_obs_u_u = zeta_obs_u_u * scale_factor
 
             norm_u_v = torch.norm(zeta_obs_u_v * grad_x_cur_obs_u_v)
-            scale_factor = 1.0 / norm_u_v
+            scale_factor = 1 / norm_u_v
             zeta_obs_u_v = zeta_obs_u_v * scale_factor
 
             norm_c_flow = torch.norm(zeta_obs_c_flow * grad_x_cur_obs_c_flow)
-            scale_factor = 1.0 / norm_c_flow
+            scale_factor = 1 / norm_c_flow
             zeta_obs_c_flow = zeta_obs_c_flow * scale_factor
 
             zeta_obs_u_u_list.append(zeta_obs_u_u)
@@ -352,19 +352,13 @@ def generate_Elder(config):
             # x_next = (x_next - zeta_obs_S_c * grad_x_cur_obs_S_c - zeta_obs_u_u * grad_x_cur_obs_u_u 
             #         - zeta_obs_u_v * grad_x_cur_obs_u_v - zeta_obs_c_flow * grad_x_cur_obs_c_flow)
             
-            x_next = (x_next - zeta_obs_S_c * grad_x_cur_obs_S_c)
-            # print(x_next.shape,v_grad_list[0].shape)
-            # exit()
+            # x_next = (x_next - zeta_obs_S_c * grad_x_cur_obs_S_c)
 
-            # for t in  range(len(u_grad_list)):
             for t in  range(0, time_steps ):
-            #     x_next[:,t,:,:] = x_next[:,t,:,:] - zeta_obs_u_u*u_grad_list[t]
-            #     x_next[:,t,:,:] = x_next[:,t,:,:] - zeta_obs_u_v*v_grad_list[t]
-            #     x_next[:,t,:,:] = x_next[:,t,:,:] - zeta_obs_c_flow*c_flow_grad_list[t]
-
                 x_next = x_next - zeta_obs_u_u_list[t]*u_grad_list[t]
-                x_next = x_next - zeta_obs_u_v_list[t]*v_grad_list[t]
-                x_next = x_next - zeta_obs_c_flow_list[t]*c_flow_grad_list[t]
+                # x_next = x_next - zeta_obs_u_v_list[t]*v_grad_list[t]
+                # x_next = x_next - zeta_obs_c_flow_list[t]*c_flow_grad_list[t]
+                x_next = x_next
 
         else:
             
@@ -377,9 +371,14 @@ def generate_Elder(config):
             zeta_pde_TDS = zeta_pde_TDS * scale_factor
 
 
-            x_next = (x_next - 0.8* (zeta_obs_S_c * grad_x_cur_obs_S_c + zeta_obs_u_u * grad_x_cur_obs_u_u 
-                    + zeta_obs_u_v * grad_x_cur_obs_u_v + zeta_obs_c_flow * grad_x_cur_obs_c_flow) - 
-                     0.2* (zeta_pde_Darcy * grad_x_cur_pde_Darcy + zeta_pde_TDS * grad_x_cur_pde_TDS))
+            x_next = (x_next - zeta_obs_S_c * grad_x_cur_obs_S_c)
+            for t in  range(0, time_steps ):
+                x_next = x_next - zeta_obs_u_u_list[t]*u_grad_list[t]
+                x_next = x_next - zeta_obs_u_v_list[t]*v_grad_list[t]
+                x_next = x_next - zeta_obs_c_flow_list[t]*c_flow_grad_list[t]
+
+
+            x_next = (x_next - 0.05* (zeta_pde_Darcy * grad_x_cur_pde_Darcy + zeta_pde_TDS * grad_x_cur_pde_TDS))
             
             # norm_value = torch.norm(zeta_pde_NS * grad_x_cur_pde_NS).item()
             # print(norm_value)
@@ -398,8 +397,8 @@ def generate_Elder(config):
     u_v_final = x_final[0, 12:23, :, :].unsqueeze(0)
     c_flow_final = x_final[0, 23:34, :, :].unsqueeze(0)
     
+    S_c_final[0,:,:] = invnormalize(S_c_final[0,:,:], *ranges['S_c'][0,:]).to(torch.float64)
     for t in range(0, time_steps ):
-        S_c_final[0,:,:] = invnormalize(S_c_final[0,:,:], *ranges['S_c'][0,:]).to(torch.float64)
         u_u_final[0,t,:,:] = invnormalize(u_u_final[0,t,:,:], *ranges['u_u'][t,:]).to(torch.float64)
         u_v_final[0,t,:,:] = invnormalize(u_v_final[0,t,:,:], *ranges['u_v'][t,:]).to(torch.float64)
         c_flow_final[0,t,:,:] = invnormalize(c_flow_final[0,t,:,:], *ranges['c_flow'][t,:]).to(torch.float64)

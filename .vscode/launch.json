@@ -13,7 +13,7 @@
             ],
             "env": {
                 "PYTHONUNBUFFERED": "1",
-                "CUDA_VISIBLE_DEVICES": "7"
+                "CUDA_VISIBLE_DEVICES": "0"
             }
         }
     ]

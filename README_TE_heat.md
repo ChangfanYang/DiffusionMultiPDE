@@ -49,6 +49,9 @@ torchrun --standalone --nproc_per_node=3 train.py --outdir=pretrained-darcy-new 
 # TE_heat
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
+# TE_heat_3k
+CUDA_VISIBLE_DEVICES=1,2,3,4,5,6,7 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_3k/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat_3k-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
+
 # TE_heat_scale
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_scale/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat_scale-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
@@ -94,7 +97,7 @@ CUDA_VISIBLE_DEVICES=4 /hpc/home/connect.yfang870/.conda/envs/DiffusionPDE/bin/p
 
 
 # Elder
-CUDA_VISIBLE_DEVICES=7 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/Elder.yaml
+CUDA_VISIBLE_DEVICES=0 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/Elder.yaml
 
 
 ### Solve Inverse Problem

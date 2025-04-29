@@ -22,7 +22,7 @@ u_v = np.squeeze(u_v)
 c_flow = np.squeeze(c_flow)
 
 data_test_path = "/data/yangchangfan/DiffusionPDE/data/testing/Elder/"
-offset = 1002
+offset = 1001
 time_steps = 11
 C, H, W = 34, 128, 128
 
@@ -81,13 +81,13 @@ variables = {
 for col, (name, (data, gt_data, vmin, vmax)) in enumerate(variables.items()):
     # 绘制预测结果
 
-    im_pred = axes[0, col].imshow(data[10,:,:], cmap='turbo', vmin=vmin, vmax=vmax)
+    im_pred = axes[0, col].imshow(data[2,:,:], cmap='turbo', vmin=vmin, vmax=vmax)
     axes[0, col].set_title(f'{name}')
     axes[0, col].axis('off')
     plt.colorbar(im_pred, ax=axes[0, col])
 
     # 绘制真实结果
-    im_gt = axes[1, col].imshow(gt_data[10,:,:].cpu().numpy(), cmap='turbo', vmin=vmin, vmax=vmax)
+    im_gt = axes[1, col].imshow(gt_data[2,:,:].cpu().numpy(), cmap='turbo', vmin=vmin, vmax=vmax)
     axes[1, col].set_title(f'{name}_GT')
     axes[1, col].axis('off')
     plt.colorbar(im_gt, ax=axes[1, col])
@@ -116,10 +116,10 @@ c_flow_GT = torch.tensor(c_flow_GT, dtype=torch.float64, device=device)
 def calculate_relative_error(pred, gt):
     return torch.norm(pred - gt, 2) / torch.norm(gt, 2)
 
-relative_error_S_c = calculate_relative_error(S_c[1,:,:], S_c_GT[1,:,:])
-relative_error_u_u = calculate_relative_error(u_u[0,:,:], u_u_GT[0,:,:])
-relative_error_u_v = calculate_relative_error(u_v[0,:,:], u_v_GT[0,:,:])
-relative_error_c_flow = calculate_relative_error(c_flow[0,:,:], c_flow_GT[0,:,:])
+relative_error_S_c = calculate_relative_error(S_c[0,:,:], S_c_GT[0,:,:])
+relative_error_u_u = calculate_relative_error(u_u[2,:,:], u_u_GT[2,:,:])
+relative_error_u_v = calculate_relative_error(u_v[2,:,:], u_v_GT[2,:,:])
+relative_error_c_flow = calculate_relative_error(c_flow[2,:,:], c_flow_GT[2,:,:])
 
 # 打印相对误差
 print(f'Relative error of S_c: {relative_error_S_c.item():.6e}')

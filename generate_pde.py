@@ -1,6 +1,6 @@
 import yaml
 from argparse import ArgumentParser
-from scripts import generate_burgers, generate_darcy, generate_poisson, generate_helmholtz, generate_ns_nonbounded, generate_ns_bounded, generate_TE_heat_validate, generate_TE_heat, generate_NS_heat, generate_MHD, generate_E_flow, generate_VA, generate_Elder
+from scripts import generate_burgers, generate_darcy, generate_poisson, generate_helmholtz, generate_ns_nonbounded, generate_ns_bounded, generate_TE_heat_validate, generate_TE_heat, generate_NS_heat, generate_MHD, generate_E_flow, generate_VA, generate_Elder, generate_TE_heat_3k
 
 if __name__ == "__main__":
     parser = ArgumentParser(description='Generate PDE file')
@@ -30,10 +30,12 @@ if __name__ == "__main__":
         generate_ns_bounded(config)
     elif name == 'TE_heat':
         print('Solving TE_heat equation...')
-        # generate_TE_heat_1(config)  # 第一次的数据
-        # generate_TE_heat(config)   # 第二次的数据
         generate_TE_heat(config)
-        # generate_TE_heat_validate(config)  # validate 1000组数据的平均误差
+        # generate_TE_heat_validate(config)
+    elif name == 'TE_heat_3k':
+        print('Solving TE_heat_3k equation...')
+        generate_TE_heat_3k(config)
+
     elif name == 'NS_heat':
         print('Solving NS_heat equation...')
         generate_NS_heat(config)

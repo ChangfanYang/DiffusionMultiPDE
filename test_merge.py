@@ -154,7 +154,7 @@ import os
 # # print("Content of 'u':", u)
 
 
-data_Elder = np.load("/data/yangchangfan/DiffusionPDE/data/Elder-merged/merge_2.npy")
+data_Elder = np.load("/data/yangchangfan/DiffusionPDE/data/Elder-merged/merge_99.npy")
 
 print(data_Elder.shape)
 # exit()
