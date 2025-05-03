@@ -352,13 +352,13 @@ def generate_Elder(config):
             # x_next = (x_next - zeta_obs_S_c * grad_x_cur_obs_S_c - zeta_obs_u_u * grad_x_cur_obs_u_u 
             #         - zeta_obs_u_v * grad_x_cur_obs_u_v - zeta_obs_c_flow * grad_x_cur_obs_c_flow)
             
-            # x_next = (x_next - zeta_obs_S_c * grad_x_cur_obs_S_c)
+            x_next = (x_next - zeta_obs_S_c * grad_x_cur_obs_S_c)
 
             for t in  range(0, time_steps ):
                 x_next = x_next - zeta_obs_u_u_list[t]*u_grad_list[t]
                 # x_next = x_next - zeta_obs_u_v_list[t]*v_grad_list[t]
-                # x_next = x_next - zeta_obs_c_flow_list[t]*c_flow_grad_list[t]
-                x_next = x_next
+                x_next = x_next - zeta_obs_c_flow_list[t]*c_flow_grad_list[t]
+                # x_next = x_next
 
         else:
             

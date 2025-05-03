@@ -136,7 +136,7 @@ def get_TE_heat_loss(mater, Ez, T, mater_GT, Ez_GT, T_GT, mater_mask, Ez_mask, T
     
     return pde_loss_E, pde_loss_T, observation_loss_mater, observation_loss_Ez, observation_loss_T
 
-def generate_TE_heat(config):
+def generate_TE_heat_3k(config):
     """Generate TE_heat equation."""
     ############################ Load data and network ############################
     datapath = config['data']['datapath']

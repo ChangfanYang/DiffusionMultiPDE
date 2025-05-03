@@ -74,6 +74,17 @@ def training_loop(
     interface_kwargs = dict(img_resolution=dataset_obj.resolution, img_channels=dataset_obj.num_channels, label_dim=dataset_obj.label_dim)
     net = dnnlib.util.construct_class_by_name(**network_kwargs, **interface_kwargs) # subclass of torch.nn.Module
     net.train().requires_grad_(True).to(device)
+    # def count_parameters_detail(model):
+    #     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    #     fixed = sum(p.numel() for p in model.parameters() if not p.requires_grad)
+    #     return trainable, fixed
+
+    # trainable_params, fixed_params = count_parameters_detail(net)
+    # print(f"可训练参数量: {trainable_params:,}")
+    # print(f"不可训练参数量: {fixed_params:,}")
+    # print(f"总参数量: {trainable_params + fixed_params:,}")
+    # exit()
+
     if dist.get_rank() == 0:
         with torch.no_grad():
             images = torch.zeros([batch_gpu, net.img_channels, net.img_resolution, net.img_resolution], device=device)
