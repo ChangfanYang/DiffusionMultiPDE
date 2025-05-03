@@ -93,7 +93,7 @@ def evaluate(result, GT_data):
 
 # 主程序修改部分
 data_path = '/data/yangchangfan/DiffusionPDE/data/testing/TE_heat'
-results_path = '/home/yangchangfan/CODE/DiffusionPDE/TE_heat_result_3k'
+results_path = '/home/yangchangfan/CODE/DiffusionPDE/TE_heat_result'
 
 # 初始化存储所有结果的字典
 all_results = {
@@ -170,7 +170,7 @@ for var in ['mater', 'real_Ez', 'imag_Ez', 'T']:
 import logging
 from datetime import datetime
 
-log_dir = "TE_heat_result_3k"
+log_dir = "TE_heat_result"
 os.makedirs(log_dir, exist_ok=True)  # 自动创建目录（如果不存在）
 log_file = os.path.join(log_dir, "evaluate_TE_heat.log")
 
