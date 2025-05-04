@@ -38,8 +38,8 @@ def evaluate(result, GT_data):
         res_dict['nRMSE'][var_name] = nrmse.item()
 
         # RMSE
-        test1 = (pred - gt) ** 2
-        test2 = torch.mean((pred - gt) ** 2)
+        # test1 = (pred - gt) ** 2
+        # test2 = torch.mean((pred - gt) ** 2)
         rmse = torch.sqrt(torch.mean((pred - gt) ** 2)).item()
         res_dict['RMSE'][var_name] = rmse
 
@@ -93,7 +93,7 @@ def evaluate(result, GT_data):
 
 # 主程序修改部分
 data_path = '/data/yangchangfan/DiffusionPDE/data/testing/TE_heat'
-results_path = '/home/yangchangfan/CODE/DiffusionPDE/TE_heat_result'
+results_path = '/home/yangchangfan/CODE/DiffusionPDE/TE_heat_result/'
 
 # 初始化存储所有结果的字典
 all_results = {
@@ -107,7 +107,7 @@ all_results = {
               'T': {'low': [], 'middle': [], 'high': []}}
 }
 
-offset_range=[30001, 30101]
+offset_range=[10001, 10003]
 for idx in range(offset_range[0], offset_range[1]):
     try:
         # 加载预测结果

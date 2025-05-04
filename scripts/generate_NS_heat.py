@@ -28,7 +28,7 @@ def random_index(k, grid_size, seed=0, device=torch.device('cuda')):
     return mask
 
 
-def identify_mater_copy(circle_params, device=torch.device('cuda')):
+def identify_mater(circle_params, device=torch.device('cuda')):
     mater_iden = torch.zeros( 128, 128, device=device)
     circle_params = circle_params.squeeze(0)
     cx, cy, r = map(float, circle_params) 
@@ -42,7 +42,7 @@ def identify_mater_copy(circle_params, device=torch.device('cuda')):
     
 
 
-def identify_mater(circle_params, device=torch.device('cuda')):
+def identify_mater_ddp(circle_params, device=torch.device('cuda')):
     batch_size = circle_params.shape[0]
     mater_iden = torch.zeros(batch_size, 128, 128, device=device)
     
@@ -65,7 +65,7 @@ def identify_mater(circle_params, device=torch.device('cuda')):
     return mater_iden
 
 
-def generate_separa_PDE_mater(mater_iden, device=torch.device('cuda')):
+def generate_separa_PDE_mater_ddp(mater_iden, device=torch.device('cuda')):
 
     rho_air = 1.24246
     rho_copper = 8960
@@ -88,6 +88,29 @@ def generate_separa_PDE_mater(mater_iden, device=torch.device('cuda')):
 
     return rho, Crho, kappa
 
+
+def generate_separa_PDE_mater(mater_iden, device=torch.device('cuda')):
+
+    rho_air = 1.24246
+    rho_copper = 8960
+    Crho_air = 1005.10779
+    Crho_copper = 385
+    kappa_air = 0.02505
+    kappa_copper = 400
+
+    rho = torch.where(mater_iden > 1e-5, rho_copper, rho_air)
+    Crho = torch.where(mater_iden > 1e-5, Crho_copper, Crho_air)
+    kappa = torch.where(mater_iden > 1e-5, kappa_copper, kappa_air)
+
+    rho = rho.permute(1, 0)
+    Crho = Crho.permute(1, 0)
+    kappa = kappa.permute(1, 0)
+
+    # scipy.io.savemat('pho.mat', {'pho': pho.cpu().detach().numpy()})
+    # scipy.io.savemat('Cpho.mat', {'Cpho': Cpho.cpu().detach().numpy()})
+    # scipy.io.savemat('kappa.mat', {'kappa': kappa.cpu().detach().numpy()})
+
+    return rho, Crho, kappa
 
 def get_NS_heat_loss(Q_heat, u_u, u_v, T, Q_heat_GT, u_u_GT, u_v_GT, T_GT, Q_heat_mask, u_u_mask, u_v_mask, T_mask, mater_iden, device=torch.device('cuda')):
     """Return the loss of the NS_heat equation and the observation loss."""
@@ -151,7 +174,7 @@ def get_NS_heat_loss_ddp(Q_heat, u_u, u_v, T, Q_heat_GT, u_u_GT, u_v_GT, T_GT, Q
     u_v_GT = u_v_GT.unsqueeze(1)
     T_GT = T_GT.unsqueeze(1)
 
-    rho, Crho, kappa = generate_separa_PDE_mater(mater_iden)
+    rho, Crho, kappa = generate_separa_PDE_mater_ddp(mater_iden)
 
     delta_x = 0.128/128 # 1mm
     delta_y = 0.128/128 # 1mm
@@ -202,7 +225,7 @@ def get_NS_heat_loss_ddp(Q_heat, u_u, u_v, T, Q_heat_GT, u_u_GT, u_v_GT, T_GT, Q
 
 
 
-def generate_NS_heat_copy(config):
+def generate_NS_heat(config):
     """Generate NS_heat equation."""
     ############################ Load data and network ############################
     datapath = config['data']['datapath']
@@ -335,10 +358,10 @@ def generate_NS_heat_copy(config):
         L_obs_u_v = torch.norm(observation_loss_u_v, 2)/500
         L_obs_T = torch.norm(observation_loss_T, 2)/500
 
-        print(L_pde_NS)
-        print(L_pde_heat)
-        print(L_obs_Q_heat)
-        print(L_obs_T)
+        # print(L_pde_NS)
+        # print(L_pde_heat)
+        # print(L_obs_Q_heat)
+        # print(L_obs_T)
 
         output_file_path = "inference_losses.jsonl"
         if i % 5 == 0:
@@ -380,15 +403,15 @@ def generate_NS_heat_copy(config):
         zeta_obs_Q_heat = zeta_obs_Q_heat * scale_factor
 
         norm_u_u = torch.norm(zeta_obs_u_u * grad_x_cur_obs_u_u)
-        scale_factor = 1.0 / norm_u_u
+        scale_factor = 0.1 / norm_u_u
         zeta_obs_u_u = zeta_obs_u_u * scale_factor
 
         norm_u_v = torch.norm(zeta_obs_u_v * grad_x_cur_obs_u_v)
-        scale_factor = 1.0 / norm_u_v
+        scale_factor = 0.1 / norm_u_v
         zeta_obs_u_v = zeta_obs_u_v * scale_factor
 
         norm_T = torch.norm(zeta_obs_T * grad_x_cur_obs_T)
-        scale_factor = 1.0 / norm_T
+        scale_factor = 0.1 / norm_T
         zeta_obs_T = zeta_obs_T * scale_factor
         
 
@@ -412,7 +435,7 @@ def generate_NS_heat_copy(config):
 
             # x_next = x_next - 0.1 * (zeta_obs_mater * grad_x_cur_obs_mater + zeta_obs_Ez * grad_x_cur_obs_Ez + zeta_obs_T * grad_x_cur_obs_T) - zeta_pde_E * grad_x_cur_pde_E - zeta_pde_T * grad_x_cur_pde_T
 
-            x_next = x_next - 0.1*(zeta_obs_Q_heat * grad_x_cur_obs_Q_heat + zeta_obs_u_u * grad_x_cur_obs_u_u + zeta_obs_u_v * grad_x_cur_obs_u_v + zeta_obs_T * grad_x_cur_obs_T) - 1* (zeta_pde_NS * grad_x_cur_pde_NS + zeta_pde_heat * grad_x_cur_pde_heat)
+            x_next = x_next - 1*(zeta_obs_Q_heat * grad_x_cur_obs_Q_heat + zeta_obs_u_u * grad_x_cur_obs_u_u + zeta_obs_u_v * grad_x_cur_obs_u_v + zeta_obs_T * grad_x_cur_obs_T) - 1* (zeta_pde_NS * grad_x_cur_pde_NS + zeta_pde_heat * grad_x_cur_pde_heat)
 
 
             # norm_value = torch.norm(zeta_pde_NS * grad_x_cur_pde_NS).item()
@@ -458,7 +481,7 @@ def generate_NS_heat_copy(config):
 
 
 
-def generate_NS_heat(config):
+def generate_NS_heat_copy(config):
     offset_range = [10001,10103]
     ############################ Load data and network ############################
     datapath = config['data']['datapath']
@@ -566,7 +589,7 @@ def generate_NS_heat(config):
             T_N = x_N[:,3,:,:].unsqueeze(1)
 
 
-            circle_iden = identify_mater(circle_GT).unsqueeze(1)
+            circle_iden = identify_mater_ddp(circle_GT).unsqueeze(1)
 
             # inv_normalization
             range_allQ_heat_paths = "/data/yangchangfan/DiffusionPDE/data/training/NS_heat/Q_heat/range_allQ_heat.mat"
@@ -660,15 +683,15 @@ def generate_NS_heat(config):
             zeta_obs_Q_heat = zeta_obs_Q_heat * scale_factor
 
             norm_u_u = torch.norm(zeta_obs_u_u * grad_x_cur_obs_u_u)
-            scale_factor = 1.0 / norm_u_u
+            scale_factor = 100.0 / norm_u_u
             zeta_obs_u_u = zeta_obs_u_u * scale_factor
 
             norm_u_v = torch.norm(zeta_obs_u_v * grad_x_cur_obs_u_v)
-            scale_factor = 1.0 / norm_u_v
+            scale_factor = 100.0 / norm_u_v
             zeta_obs_u_v = zeta_obs_u_v * scale_factor
 
             norm_T = torch.norm(zeta_obs_T * grad_x_cur_obs_T)
-            scale_factor = 1.0 / norm_T
+            scale_factor = 100.0 / norm_T
             zeta_obs_T = zeta_obs_T * scale_factor
         
 
@@ -692,7 +715,7 @@ def generate_NS_heat(config):
 
                 # x_next = x_next - 0.1 * (zeta_obs_mater * grad_x_cur_obs_mater + zeta_obs_Ez * grad_x_cur_obs_Ez + zeta_obs_T * grad_x_cur_obs_T) - zeta_pde_E * grad_x_cur_pde_E - zeta_pde_T * grad_x_cur_pde_T
 
-                x_next = x_next - 0.1*(zeta_obs_Q_heat * grad_x_cur_obs_Q_heat + zeta_obs_u_u * grad_x_cur_obs_u_u + zeta_obs_u_v * grad_x_cur_obs_u_v + zeta_obs_T * grad_x_cur_obs_T) - 1* (zeta_pde_NS * grad_x_cur_pde_NS + zeta_pde_heat * grad_x_cur_pde_heat)
+                x_next = x_next - 1*(zeta_obs_Q_heat * grad_x_cur_obs_Q_heat + zeta_obs_u_u * grad_x_cur_obs_u_u + zeta_obs_u_v * grad_x_cur_obs_u_v + zeta_obs_T * grad_x_cur_obs_T) - 1* (zeta_pde_NS * grad_x_cur_pde_NS + zeta_pde_heat * grad_x_cur_pde_heat)
 
 
                 # norm_value = torch.norm(zeta_pde_NS * grad_x_cur_pde_NS).item()

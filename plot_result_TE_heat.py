@@ -1,5 +1,7 @@
 import os
 import scipy.io as sio
+import matplotlib
+matplotlib.use('AGG')  # 设置后端为 AGG
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -91,7 +93,7 @@ def evaluate(result, GT_data):
     return res_dict
 
 # 加载数据
-TE_heat_results = sio.loadmat("/home/yangchangfan/CODE/DiffusionPDE/TE_heat_result_3k/TE_heat_results_30001.mat")
+TE_heat_results = sio.loadmat("/home/yangchangfan/CODE/DiffusionPDE/TE_heat_result/TE_heat_results_10001.mat")
 mater = TE_heat_results['mater']
 complex_Ez = TE_heat_results['Ez']
 real_Ez = complex_Ez.real
@@ -111,7 +113,7 @@ imag_Ez = np.squeeze(imag_Ez)
 T = np.squeeze(T)
 
 data_path = '/data/yangchangfan/DiffusionPDE/data/testing/TE_heat'
-offset = 30001
+offset = 10001
 
 # 定义文件路径
 mater_GT = sio.loadmat(os.path.join(data_path, 'mater', f'{offset}.mat'))['mater']

@@ -29,7 +29,7 @@ def random_index(k, grid_size, seed=0, device=torch.device('cuda')):
     return mask
 
 
-def identify_mater(elliptic_params, device=torch.device('cuda')):
+def identify_mater_ddp(elliptic_params, device=torch.device('cuda')):
     # elliptic_params: 椭圆参数，shape为 [batchsize, 1, 3]
     batch_size = elliptic_params.shape[0]
     mater_iden = torch.zeros(batch_size, 128, 128, device=device)
@@ -63,6 +63,36 @@ def identify_mater(elliptic_params, device=torch.device('cuda')):
     return mater_iden
 
     
+def identify_mater(elliptic_params, device=torch.device('cuda')):
+
+    # elliptic_params: 椭圆参数，格式为 [长轴, 短轴, 旋转角度（度）]
+    mater_iden = torch.zeros(128, 128, device=device)
+    
+    # 椭圆参数
+    e_a = elliptic_params[0,0]  # 长轴
+    e_b = elliptic_params[0,1]  # 短轴
+    angle = math.radians(elliptic_params[0,2])  # 旋转角度，转换为弧度
+
+    center_x = 0
+    center_y = 0
+
+    for j in range(128):
+        for k in range(128):
+            x0 = -63.5 + j
+            y0 = -63.5 + k
+
+            # 旋转坐标系，将椭圆旋转到标准位置
+            x_rot = (x0 - center_x) * math.cos(angle) + (y0 - center_y) * math.sin(angle)
+            y_rot = -(x0 - center_x) * math.sin(angle) + (y0 - center_y) * math.cos(angle)
+
+            # 判断点是否在椭圆内
+            if (x_rot / e_a) ** 2 + (y_rot / e_b) ** 2 <= 1:
+                mater_iden[j, k] = 1  # 椭圆内部或边界
+            else:
+                mater_iden[j, k] = -1  # 椭圆外部
+
+    return mater_iden
+
 
 def generate_separa_mater(mater, T, mater_iden, device=torch.device('cuda')):
     f = 4e9
@@ -197,7 +227,7 @@ def get_TE_heat_loss_ddp(mater, Ez, T, mater_GT, Ez_GT, T_GT, mater_mask, Ez_mas
     return pde_loss_E, pde_loss_T, observation_loss_mater, observation_loss_Ez, observation_loss_T
 
 
-def generate_TE_heat_copy(config):
+def generate_TE_heat(config):
     """Generate TE_heat equation."""
     ############################ Load data and network ############################
     datapath = config['data']['datapath']
@@ -316,7 +346,8 @@ def generate_TE_heat_copy(config):
 
         
         L_obs_mater = torch.norm(observation_loss_mater, 2)/500
-        L_obs_Ez = torch.norm(observation_loss_Ez, 2)/500  # 拆成实部和虚部
+        L_obs_real_Ez = torch.norm(observation_loss_Ez.real, 2)/500  # 拆成实部和虚部
+        L_obs_imag_Ez = torch.norm(observation_loss_Ez.imag, 2)/500  # 拆成实部和虚部
         L_obs_T = torch.norm(observation_loss_T, 2)/500
 
         # print(L_pde)
@@ -331,20 +362,30 @@ def generate_TE_heat_copy(config):
               "L_pde_E": L_pde_E.tolist(),
               "L_pde_T": L_pde_T.tolist(),
                "L_obs_mater": L_obs_mater.tolist(),
-               "L_obs_Ez": L_obs_Ez.tolist(),
+               "L_obs_real_Ez": L_obs_real_Ez.tolist(),
+               "L_obs_imag_Ez": L_obs_imag_Ez.tolist(),
               "L_obs_T": L_obs_T.tolist()
            }
             with open(output_file_path, "a") as file:
                 json.dump(log_entry, file)
                 file.write("\n")  
 
-        print(L_obs_mater.grad_fn, x_cur.grad_fn)
-        # exit()
+
         grad_x_cur_obs_mater = torch.autograd.grad(outputs=L_obs_mater, inputs=x_cur, retain_graph=True)[0]
-        grad_x_cur_obs_Ez = torch.autograd.grad(outputs=L_obs_Ez, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_real_Ez = torch.autograd.grad(outputs=L_obs_real_Ez, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_imag_Ez = torch.autograd.grad(outputs=L_obs_imag_Ez, inputs=x_cur, retain_graph=True)[0]
         grad_x_cur_obs_T = torch.autograd.grad(outputs=L_obs_T, inputs=x_cur, retain_graph=True)[0]
         grad_x_cur_pde_E = torch.autograd.grad(outputs=L_pde_E, inputs=x_cur, retain_graph=True)[0]
         grad_x_cur_pde_T = torch.autograd.grad(outputs=L_pde_T, inputs=x_cur)[0]
+
+
+        # grad_x_cur_obs_mater = torch.autograd.grad(outputs=L_obs_mater, inputs=x_cur, retain_graph=True)[0]
+        # grad_x_cur_obs_real_Ez = torch.autograd.grad(outputs=L_obs_real_Ez, inputs=x_cur, retain_graph=True)[0]
+        # grad_x_cur_obs_imag_Ez = torch.autograd.grad(outputs=L_obs_imag_Ez, inputs=x_cur, retain_graph=True)[0]
+        # grad_x_cur_obs_T = torch.autograd.grad(outputs=L_obs_T, inputs=x_cur, retain_graph=True)[0]
+        # grad_x_cur_pde_E = torch.autograd.grad(outputs=L_pde_E, inputs=x_cur, retain_graph=True)[0]
+        # grad_x_cur_pde_T = torch.autograd.grad(outputs=L_pde_T, inputs=x_cur)[0]
+
 
         # zeta_obs_mater = config['generate']['zeta_obs_mater']
         # zeta_obs_Ez = config['generate']['zeta_obs_Ez']
@@ -352,7 +393,8 @@ def generate_TE_heat_copy(config):
         # zeta_pde = config['generate']['zeta_pde']
        
         zeta_obs_mater = 10
-        zeta_obs_Ez = 10
+        zeta_obs_real_Ez = 10
+        zeta_obs_imag_Ez = 10
         zeta_obs_T = 10
         zeta_pde_E = 10
         zeta_pde_T = 10
@@ -362,17 +404,21 @@ def generate_TE_heat_copy(config):
         scale_factor = 1.0 / norm_mater
         zeta_obs_mater = zeta_obs_mater * scale_factor
 
-        norm_Ez = torch.norm(zeta_obs_Ez * grad_x_cur_obs_Ez)
-        scale_factor = 1.0 / norm_Ez
-        zeta_obs_Ez = zeta_obs_Ez * scale_factor
+        norm_real_Ez = torch.norm(zeta_obs_real_Ez * grad_x_cur_obs_real_Ez)
+        scale_factor = 10.0 / norm_real_Ez
+        zeta_obs_real_Ez = zeta_obs_real_Ez * scale_factor
+
+        norm_imag_Ez = torch.norm(zeta_obs_imag_Ez * grad_x_cur_obs_imag_Ez)
+        scale_factor = 10.0 / norm_imag_Ez
+        zeta_obs_imag_Ez = zeta_obs_imag_Ez * scale_factor
 
         norm_T = torch.norm(zeta_obs_T * grad_x_cur_obs_T)
-        scale_factor = 1.0 / norm_T
+        scale_factor = 10.0 / norm_T
         zeta_obs_T = zeta_obs_T * scale_factor
         
 
         if i <= 0.9 * num_steps:
-            x_next = x_next - zeta_obs_mater * grad_x_cur_obs_mater - zeta_obs_Ez * grad_x_cur_obs_Ez - zeta_obs_T * grad_x_cur_obs_T
+            x_next = x_next - zeta_obs_mater * grad_x_cur_obs_mater - zeta_obs_real_Ez * grad_x_cur_obs_real_Ez - zeta_obs_imag_Ez * grad_x_cur_obs_imag_Ez - zeta_obs_T * grad_x_cur_obs_T
       
             norm_value = torch.norm(zeta_obs_mater * grad_x_cur_obs_mater).item()
             # print(norm_value)
@@ -389,7 +435,7 @@ def generate_TE_heat_copy(config):
 
             # x_next = x_next - 0.1 * (zeta_obs_mater * grad_x_cur_obs_mater + zeta_obs_Ez * grad_x_cur_obs_Ez + zeta_obs_T * grad_x_cur_obs_T) - zeta_pde_E * grad_x_cur_pde_E - zeta_pde_T * grad_x_cur_pde_T
 
-            x_next = x_next - 1*(zeta_obs_mater * grad_x_cur_obs_mater + zeta_obs_Ez * grad_x_cur_obs_Ez + zeta_obs_T * grad_x_cur_obs_T) - 0.05* (zeta_pde_E * grad_x_cur_pde_E + zeta_pde_T * grad_x_cur_pde_T)
+            x_next = x_next - 1*(zeta_obs_mater * grad_x_cur_obs_mater + zeta_obs_real_Ez * grad_x_cur_obs_real_Ez + zeta_obs_imag_Ez * grad_x_cur_obs_imag_Ez + zeta_obs_T * grad_x_cur_obs_T) - 1* (zeta_pde_E * grad_x_cur_pde_E + zeta_pde_T * grad_x_cur_pde_T)
 
 
             norm_value = torch.norm(zeta_pde_E * grad_x_cur_pde_E).item()
@@ -416,13 +462,15 @@ def generate_TE_heat_copy(config):
 
 
     relative_error_mater = torch.norm(mater_final - mater_GT, 2) / torch.norm(mater_GT, 2)
-    relative_error_Ez = torch.norm(complex_Ez_final - Ez_GT, 2) / torch.norm(Ez_GT, 2)
+    relative_error_real_Ez = torch.norm(real_Ez_final - Ez_GT.real, 2) / torch.norm(Ez_GT.real, 2)
+    relative_error_imag_Ez = torch.norm(imag_Ez_final - Ez_GT.imag, 2) / torch.norm(Ez_GT.imag, 2)
     relative_error_T = torch.norm(T_final - T_GT, 2) / torch.norm(T_GT, 2)  
     
-    scipy.io.savemat('T_final.mat', {'T_final': T_final.cpu().detach().numpy()})
+    # scipy.io.savemat('T_final.mat', {'T_final': T_final.cpu().detach().numpy()})
 
     print(f'Relative error of mater: {relative_error_mater}')
-    print(f'Relative error of Ez: {relative_error_Ez}')
+    print(f'Relative error of real_Ez: {relative_error_real_Ez}')
+    print(f'Relative error of imag_Ez: {relative_error_imag_Ez}')
     print(f'Relative error of T: {relative_error_T}')
 
     mater_final = mater_final.detach().cpu().numpy()
@@ -434,8 +482,239 @@ def generate_TE_heat_copy(config):
 
 
 
-def generate_TE_heat(config):
-    offset_range = [30001,30103]
+def generate_TE_heat_copy(config, start, end):
+    base_idx = config['data']['offset'][0]
+    network_pkl = config['test']['pre-trained']
+    print(f'Loading networks from "{network_pkl}"...')
+    f = open(network_pkl, 'rb')
+    device = config['generate']['device']
+    net = pickle.load(f)['ema'].to(device)
+
+    for cur_idx in range(start,end):
+        print(cur_idx,'----')
+        generate_single_TE_heat(config, cur_idx, net)
+
+def generate_single_TE_heat(config, offset, net):
+    """Generate TE_heat equation."""
+    ############################ Load data and network ############################
+    datapath = config['data']['datapath']
+    device = config['generate']['device']
+
+    mater_GT_path = os.path.join(datapath, "mater", f"{offset}.mat")
+    mater_GT = sio.loadmat(mater_GT_path)['mater']
+    mater_GT = torch.tensor(mater_GT, dtype=torch.float64, device=device)
+
+    Ez_GT_path = os.path.join(datapath, "Ez", f"{offset}.mat")
+    Ez_GT = sio.loadmat(Ez_GT_path)['export_Ez']
+    Ez_GT = torch.tensor(Ez_GT, dtype=torch.complex128, device=device)
+    
+    T_GT_path = os.path.join(datapath, "T", f"{offset}.mat")
+    T_GT = sio.loadmat(T_GT_path)['export_T']
+    T_GT = torch.tensor(T_GT, dtype=torch.float64, device=device)
+
+    elliptic_GT_path = os.path.join(datapath, "ellipticcsv", f"{offset}.csv")
+    elliptic_GT = pd.read_csv(elliptic_GT_path, header=None)
+    elliptic_GT = torch.tensor(elliptic_GT.values, dtype=torch.float64)
+    
+    batch_size = config['generate']['batch_size']
+    seed = config['generate']['seed']
+    torch.manual_seed(seed)
+    
+    
+    ############################ Set up EDM latent ############################
+    print(f'Generating {batch_size} samples...')
+    latents = torch.randn([batch_size, net.img_channels, net.img_resolution, net.img_resolution], device=device)
+    class_labels = None
+    if net.label_dim:
+        class_labels = torch.eye(net.label_dim, device=device)[torch.randint(net.label_dim, size=[batch_size], device=device)]
+    
+    sigma_min = config['generate']['sigma_min']
+    sigma_max = config['generate']['sigma_max']
+    sigma_min = max(sigma_min, net.sigma_min)
+    sigma_max = min(sigma_max, net.sigma_max)
+    
+    num_steps = config['test']['iterations']
+    step_indices = torch.arange(num_steps, dtype=torch.float64, device=device)
+    rho = config['generate']['rho']
+    sigma_t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
+    sigma_t_steps = torch.cat([net.round_sigma(sigma_t_steps), torch.zeros_like(sigma_t_steps[:1])]) # t_N = 0
+    
+    x_next = latents.to(torch.float64) * sigma_t_steps[0]
+    known_index_mater = random_index(500, 128, seed=2)
+    known_index_Ez = random_index(500, 128, seed=1)
+    known_index_T = random_index(500, 128, seed=0)
+    
+    ############################ Sample the data ############################
+    for i, (sigma_t_cur, sigma_t_next) in tqdm.tqdm(list(enumerate(zip(sigma_t_steps[:-1], sigma_t_steps[1:]))), unit='step'): # 0, ..., N-1
+        x_cur = x_next.detach().clone()
+        x_cur.requires_grad = True
+        sigma_t = net.round_sigma(sigma_t_cur)
+        
+        # Euler step
+
+        x_N = net(x_cur, sigma_t, class_labels=class_labels).to(torch.float64)
+
+        d_cur = (x_cur - x_N) / sigma_t
+        x_next = x_cur + (sigma_t_next - sigma_t) * d_cur
+        
+        # 2nd order correction
+        if i < num_steps - 1:
+            x_N = net(x_next, sigma_t_next, class_labels=class_labels).to(torch.float64)
+            d_prime = (x_next - x_N) / sigma_t_next
+            x_next = x_cur + (sigma_t_next - sigma_t) * (0.5 * d_cur + 0.5 * d_prime)
+        
+        # Scale the data back
+        mater_N = x_N[:,0,:,:].unsqueeze(0)
+        real_Ez_N = x_N[:,1,:,:].unsqueeze(0)
+        imag_Ez_N = x_N[:,2,:,:].unsqueeze(0)
+        T_N = x_N[:,3,:,:].unsqueeze(0)
+
+        mater_iden = identify_mater(elliptic_GT)
+        val_in = ((mater_N - 0.1) * (3e11 - 1e11) / 0.8 + 1e11).to(torch.float64)
+        val_out = ((mater_N + 0.9) * (20 - 10) / 0.8 + 10).to(torch.float64)
+        mater_N = torch.where(mater_iden > 1e-5, val_in, val_out)
+        mater_N_np = mater_N[0, 0, :, :].cpu().detach().numpy()
+        np.savetxt('mater_N.txt', mater_N_np, fmt='%.6f')
+        scipy.io.savemat('mater_N.mat', {'mater_N': mater_N.cpu().detach().numpy()})
+
+        # inv_normalization
+        max_abs_Ez_path = "/data/yangchangfan/DiffusionPDE/data/training/TE_heat/Ez/max_abs_Ez.mat"
+        max_abs_Ez = sio.loadmat(max_abs_Ez_path)['max_abs_Ez']
+        max_abs_Ez = torch.tensor(max_abs_Ez, device=device)
+
+        range_allT_paths = "/data/yangchangfan/DiffusionPDE/data/training/TE_heat/T/range_allT.mat"
+        range_allT = sio.loadmat(range_allT_paths)['range_allT']
+        range_allT = torch.tensor(range_allT, device=device)
+
+        max_T = range_allT[0,1]
+        min_T = range_allT[0,0]
+
+        real_Ez_N = (real_Ez_N*max_abs_Ez/0.9).to(torch.float64)
+        imag_Ez_N = (imag_Ez_N*max_abs_Ez/0.9).to(torch.float64)
+        T_N = ((T_N+0.9)/1.8 *(max_T - min_T) + min_T).to(torch.float64)
+
+        complex_Ez_N = torch.complex(real_Ez_N, imag_Ez_N)
+      
+        # Compute the loss
+        # with torch.enable_grad():
+        pde_loss_E, pde_loss_T, observation_loss_mater, observation_loss_Ez, observation_loss_T = get_TE_heat_loss(mater_N, complex_Ez_N, T_N, mater_GT, Ez_GT, T_GT, known_index_mater, known_index_Ez, known_index_T, mater_iden, device=device)
+        L_pde_E = torch.norm(pde_loss_E, 2)/(128*128)
+        L_pde_T = torch.norm(pde_loss_T, 2)/(128*128)
+        
+        nan_pde_loss_E = torch.isnan(pde_loss_E)
+        if nan_pde_loss_E.any():
+            print( torch.nonzero(nan_pde_loss_E))
+            print(pde_loss_E[nan_pde_loss_E])
+
+        
+        L_obs_mater = torch.norm(observation_loss_mater, 2)/500
+        L_obs_real_Ez = torch.norm(observation_loss_Ez.real, 2)/500  # 拆成实部和虚部
+        L_obs_imag_Ez = torch.norm(observation_loss_Ez.imag, 2)/500  # 拆成实部和虚部
+        L_obs_T = torch.norm(observation_loss_T, 2)/500
+
+
+        output_file_path = "inference_losses.jsonl"
+        if i % 5 == 0:
+            log_entry = {
+              "step": i,
+              "L_pde_E": L_pde_E.tolist(),
+              "L_pde_T": L_pde_T.tolist(),
+               "L_obs_mater": L_obs_mater.tolist(),
+               "L_obs_real_Ez": L_obs_real_Ez.tolist(),
+               "L_obs_imag_Ez": L_obs_imag_Ez.tolist(),
+              "L_obs_T": L_obs_T.tolist()
+           }
+            with open(output_file_path, "a") as file:
+                json.dump(log_entry, file)
+                file.write("\n")  
+
+
+        grad_x_cur_obs_mater = torch.autograd.grad(outputs=L_obs_mater, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_real_Ez = torch.autograd.grad(outputs=L_obs_real_Ez, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_imag_Ez = torch.autograd.grad(outputs=L_obs_imag_Ez, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_obs_T = torch.autograd.grad(outputs=L_obs_T, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_pde_E = torch.autograd.grad(outputs=L_pde_E, inputs=x_cur, retain_graph=True)[0]
+        grad_x_cur_pde_T = torch.autograd.grad(outputs=L_pde_T, inputs=x_cur)[0]
+
+
+        zeta_obs_mater = 10
+        zeta_obs_real_Ez = 10
+        zeta_obs_imag_Ez = 10
+        zeta_obs_T = 10
+        zeta_pde_E = 10
+        zeta_pde_T = 10
+
+    # scale zeta
+        norm_mater = torch.norm(zeta_obs_mater * grad_x_cur_obs_mater)
+        scale_factor = 1.0 / norm_mater
+        zeta_obs_mater = zeta_obs_mater * scale_factor
+
+        norm_real_Ez = torch.norm(zeta_obs_real_Ez * grad_x_cur_obs_real_Ez)
+        scale_factor = 10.0 / norm_real_Ez
+        zeta_obs_real_Ez = zeta_obs_real_Ez * scale_factor
+
+        norm_imag_Ez = torch.norm(zeta_obs_imag_Ez * grad_x_cur_obs_imag_Ez)
+        scale_factor = 10.0 / norm_imag_Ez
+        zeta_obs_imag_Ez = zeta_obs_imag_Ez * scale_factor
+
+        norm_T = torch.norm(zeta_obs_T * grad_x_cur_obs_T)
+        scale_factor = 10.0 / norm_T
+        zeta_obs_T = zeta_obs_T * scale_factor
+        
+
+        if i <= 0.9 * num_steps:
+            x_next = x_next - zeta_obs_mater * grad_x_cur_obs_mater - zeta_obs_real_Ez * grad_x_cur_obs_real_Ez - zeta_obs_imag_Ez * grad_x_cur_obs_imag_Ez - zeta_obs_T * grad_x_cur_obs_T
+      
+            norm_value = torch.norm(zeta_obs_mater * grad_x_cur_obs_mater).item()
+            # print(norm_value)
+
+        else:
+            
+            norm_pde_E = torch.norm(zeta_pde_E * grad_x_cur_pde_E)
+            scale_factor = 1 / norm_pde_E
+            zeta_pde_E = zeta_pde_E * scale_factor
+
+            norm_pde_T = torch.norm(zeta_pde_T * grad_x_cur_pde_E)
+            scale_factor = 1 / norm_pde_T
+            zeta_pde_T = zeta_pde_T * scale_factor
+
+            # x_next = x_next - 0.1 * (zeta_obs_mater * grad_x_cur_obs_mater + zeta_obs_Ez * grad_x_cur_obs_Ez + zeta_obs_T * grad_x_cur_obs_T) - zeta_pde_E * grad_x_cur_pde_E - zeta_pde_T * grad_x_cur_pde_T
+
+            x_next = x_next - 1*(zeta_obs_mater * grad_x_cur_obs_mater + zeta_obs_real_Ez * grad_x_cur_obs_real_Ez + zeta_obs_imag_Ez * grad_x_cur_obs_imag_Ez + zeta_obs_T * grad_x_cur_obs_T) - 1* (zeta_pde_E * grad_x_cur_pde_E + zeta_pde_T * grad_x_cur_pde_T)
+
+
+            norm_value = torch.norm(zeta_pde_E * grad_x_cur_pde_E).item()
+            print(norm_value)
+
+    ############################ Save the data ############################
+    x_final = x_next
+    mater_final = x_final[:,0,:,:].unsqueeze(0)
+    real_Ez_final = x_final[:,1,:,:].unsqueeze(0)
+    imag_Ez_final = x_final[:,2,:,:].unsqueeze(0)
+    T_final = x_final[:,3,:,:].unsqueeze(0)    
+    
+
+    mater_iden = identify_mater(elliptic_GT)
+    val_in = ((mater_final - 0.1) * (3e11 - 1e11) / 0.8 + 1e11).to(torch.float64)  
+    val_out = ((mater_final + 0.9) * (20 - 10) / 0.8 + 10).to(torch.float64) 
+    mater_final = torch.where(mater_iden > 1e-5, val_in, val_out)
+
+
+    real_Ez_final = (real_Ez_final * max_abs_Ez / 0.9).to(torch.float64)
+    imag_Ez_final = (imag_Ez_final * max_abs_Ez / 0.9).to(torch.float64)
+    complex_Ez_final = torch.complex(real_Ez_final, imag_Ez_final)
+    T_final = ((T_final+0.9)/1.8 *(max_T - min_T) + min_T).to(torch.float64)
+
+    mater_final = mater_final.detach().cpu().numpy()
+    complex_Ez_final = complex_Ez_final.detach().cpu().numpy()
+    T_final = T_final.detach().cpu().numpy()
+
+    scipy.io.savemat(f'/home/yangchangfan/CODE/DiffusionPDE/TE_heat_result/TE_heat_results_{offset}.mat', {'mater': mater_final, 'Ez': complex_Ez_final, 'T': T_final})
+    print('Done.')
+
+
+def generate_TE_heat_copy_copy(config):
+    offset_range = [10001,10002]
     ############################ Load data and network ############################
     datapath = config['data']['datapath']
     device = config['generate']['device']
@@ -475,7 +754,7 @@ def generate_TE_heat(config):
     net = pickle.load(f)['ema'].to(device)
     
     # batch_size = config['generate']['batch_size']
-    batch_size = 6
+    batch_size = 1
     seed = config['generate']['seed']
     torch.manual_seed(seed)
 
@@ -534,7 +813,7 @@ def generate_TE_heat(config):
             T_N = x_N[:,3,:,:].unsqueeze(1)
 
 
-            mater_iden = identify_mater(elliptic_GT).unsqueeze(1)
+            mater_iden = identify_mater_ddp(elliptic_GT).unsqueeze(1)
 
             val_in = ((mater_N - 0.1) * (3e11 - 1e11) / 0.8 + 1e11).to(torch.float64)
             val_out = ((mater_N + 0.9) * (20 - 10) / 0.8 + 10).to(torch.float64)
@@ -578,7 +857,8 @@ def generate_TE_heat(config):
 
             
             L_obs_mater = torch.norm(observation_loss_mater, 2, dim=(-1,-2))/500
-            L_obs_Ez = torch.norm(observation_loss_Ez, 2, dim=(-1,-2))/500  # 拆成实部和虚部
+            L_obs_real_Ez = torch.norm(observation_loss_Ez.real, 2, dim=(-1,-2))/500  # 拆成实部和虚部
+            L_obs_imag_Ez = torch.norm(observation_loss_Ez.imag, 2, dim=(-1,-2))/500 
             L_obs_T = torch.norm(observation_loss_T, 2, dim=(-1,-2))/500
 
             output_file_path = "inference_losses.jsonl"
@@ -588,45 +868,55 @@ def generate_TE_heat(config):
                 "L_pde_E": L_pde_E.tolist(),
                 "L_pde_T": L_pde_T.tolist(),
                 "L_obs_mater": L_obs_mater.tolist(),
-                "L_obs_Ez": L_obs_Ez.tolist(),
+                "L_obs_real_Ez": L_obs_real_Ez.tolist(),
+                "L_obs_imag_Ez": L_obs_imag_Ez.tolist(),
                 "L_obs_T": L_obs_T.tolist()
             }
                 with open(output_file_path, "a") as file:
                     json.dump(log_entry, file)
                     file.write("\n")  
             
-            grad_x_cur_obs_mater = torch.autograd.grad(outputs=L_obs_mater, inputs=x_cur, grad_outputs=L_obs_mater,retain_graph=True)[0]
-            grad_x_cur_obs_Ez = torch.autograd.grad(outputs=L_obs_Ez, inputs=x_cur, grad_outputs=L_obs_Ez, retain_graph=True)[0]
-            grad_x_cur_obs_T = torch.autograd.grad(outputs=L_obs_T, inputs=x_cur, grad_outputs=L_obs_T, retain_graph=True)[0]
-            grad_x_cur_pde_E = torch.autograd.grad(outputs=L_pde_E, inputs=x_cur, grad_outputs=L_pde_E, retain_graph=True)[0]
-            grad_x_cur_pde_T = torch.autograd.grad(outputs=L_pde_T, grad_outputs=L_pde_T, inputs=x_cur)[0]
 
-            zeta_obs_mater = 10
-            zeta_obs_Ez = 10
-            zeta_obs_T = 10
-            zeta_pde_E = 10
-            zeta_pde_T = 10
+            grad_x_cur_obs_mater = torch.autograd.grad(outputs=L_obs_mater, inputs=x_cur, grad_outputs=torch.ones_like(L_obs_mater),retain_graph=True)[0]
+            grad_x_cur_obs_real_Ez = torch.autograd.grad(outputs=L_obs_real_Ez, inputs=x_cur, grad_outputs=torch.ones_like(L_obs_real_Ez), retain_graph=True)[0]
+            grad_x_cur_obs_imag_Ez = torch.autograd.grad(outputs=L_obs_imag_Ez, inputs=x_cur, grad_outputs=torch.ones_like(L_obs_imag_Ez), retain_graph=True)[0]
+            grad_x_cur_obs_T = torch.autograd.grad(outputs=L_obs_T, inputs=x_cur, grad_outputs=torch.ones_like(L_obs_T), retain_graph=True)[0]
+            grad_x_cur_pde_E = torch.autograd.grad(outputs=L_pde_E, inputs=x_cur, grad_outputs=torch.ones_like(L_pde_E), retain_graph=True)[0]
+            grad_x_cur_pde_T = torch.autograd.grad(outputs=L_pde_T, grad_outputs=torch.ones_like(L_pde_T), inputs=x_cur)[0]
+
+            zeta_obs_mater = torch.ones_like(grad_x_cur_obs_mater)
+            zeta_obs_real_Ez = torch.ones_like(grad_x_cur_obs_real_Ez)
+            zeta_obs_imag_Ez = torch.ones_like(grad_x_cur_obs_imag_Ez)
+            zeta_obs_T = torch.ones_like(grad_x_cur_obs_T)
+            zeta_pde_E = torch.ones_like(grad_x_cur_obs_mater)
+            zeta_pde_T = torch.ones_like(grad_x_cur_obs_mater)
+
 
         # scale zeta
-            norm_mater = torch.norm(zeta_obs_mater * grad_x_cur_obs_mater)
+            norm_mater = torch.norm(zeta_obs_mater * grad_x_cur_obs_mater , dim=(-1,-2), keepdim=True)
             scale_factor = 1.0 / norm_mater
             zeta_obs_mater = zeta_obs_mater * scale_factor
 
-            norm_Ez = torch.norm(zeta_obs_Ez * grad_x_cur_obs_Ez)
-            scale_factor = 1.0 / norm_Ez
-            zeta_obs_Ez = zeta_obs_Ez * scale_factor
+            norm_real_Ez = torch.norm(zeta_obs_real_Ez * grad_x_cur_obs_real_Ez, dim=(-1,-2), keepdim=True)
+            scale_factor = 10.0 / norm_real_Ez
+            zeta_obs_real_Ez = zeta_obs_real_Ez * scale_factor
 
-            norm_T = torch.norm(zeta_obs_T * grad_x_cur_obs_T)
-            scale_factor = 1.0 / norm_T
+            norm_imag_Ez = torch.norm(zeta_obs_imag_Ez * grad_x_cur_obs_imag_Ez, dim=(-1,-2), keepdim=True)
+            scale_factor = 10.0 / norm_imag_Ez
+            zeta_obs_imag_Ez = zeta_obs_imag_Ez * scale_factor
+
+            norm_T = torch.norm(zeta_obs_T * grad_x_cur_obs_T, dim=(-1,-2), keepdim=True)
+            scale_factor = 10.0 / norm_T
             zeta_obs_T = zeta_obs_T * scale_factor
             
 
             if i <= 0.9 * num_steps:
-                x_next = x_next - zeta_obs_mater * grad_x_cur_obs_mater - zeta_obs_Ez * grad_x_cur_obs_Ez - zeta_obs_T * grad_x_cur_obs_T
+                x_next = x_next - zeta_obs_mater * grad_x_cur_obs_mater - zeta_obs_real_Ez * grad_x_cur_obs_real_Ez - zeta_obs_imag_Ez * grad_x_cur_obs_imag_Ez - zeta_obs_T * grad_x_cur_obs_T
     
-                norm_value = torch.norm(zeta_obs_mater * grad_x_cur_obs_mater).item()
-                # print(norm_value)
+                # norm_value = torch.norm(zeta_obs_mater * grad_x_cur_obs_mater).item()
+                # # print(norm_value)
 
+                
             else:
                 
                 norm_pde_E = torch.norm(zeta_pde_E * grad_x_cur_pde_E)
@@ -639,7 +929,7 @@ def generate_TE_heat(config):
 
                 # x_next = x_next - 0.1 * (zeta_obs_mater * grad_x_cur_obs_mater + zeta_obs_Ez * grad_x_cur_obs_Ez + zeta_obs_T * grad_x_cur_obs_T) - zeta_pde_E * grad_x_cur_pde_E - zeta_pde_T * grad_x_cur_pde_T
 
-                x_next = x_next - 0.8*(zeta_obs_mater * grad_x_cur_obs_mater + zeta_obs_Ez * grad_x_cur_obs_Ez + zeta_obs_T * grad_x_cur_obs_T) - 0.2* (zeta_pde_E * grad_x_cur_pde_E + zeta_pde_T * grad_x_cur_pde_T)
+                x_next = x_next - 1*(zeta_obs_mater * grad_x_cur_obs_mater + zeta_obs_real_Ez * grad_x_cur_obs_real_Ez + zeta_obs_imag_Ez * grad_x_cur_obs_imag_Ez + zeta_obs_T * grad_x_cur_obs_T) - 1* (zeta_pde_E * grad_x_cur_pde_E + zeta_pde_T * grad_x_cur_pde_T)
 
 
                 norm_value = torch.norm(zeta_pde_E * grad_x_cur_pde_E).item()
@@ -653,7 +943,7 @@ def generate_TE_heat(config):
         imag_Ez_final = x_final[:,2,:,:].unsqueeze(1)
         T_final = x_final[:,3,:,:].unsqueeze(1)    
 
-        mater_iden = identify_mater(elliptic_GT).unsqueeze(1)
+        mater_iden = identify_mater_ddp(elliptic_GT).unsqueeze(1)
         val_in = ((mater_final - 0.1) * (3e11 - 1e11) / 0.8 + 1e11).to(torch.float64)  
         val_out = ((mater_final + 0.9) * (20 - 10) / 0.8 + 10).to(torch.float64) 
         mater_final = torch.where(mater_iden > 1e-5, val_in, val_out)
@@ -666,16 +956,19 @@ def generate_TE_heat(config):
 
 
         relative_error_mater = torch.norm(mater_final.squeeze() - mater_GT, 2, dim = (-1,-2)) / torch.norm(mater_GT, 2, dim = (-1,-2))
-        relative_error_Ez = torch.norm(complex_Ez_final.squeeze() - Ez_GT, 2, dim = (-1,-2)) / torch.norm(Ez_GT, 2, dim = (-1,-2))
+        relative_error_real_Ez = torch.norm(real_Ez_final.squeeze() - Ez_GT.real, 2, dim = (-1,-2)) / torch.norm(Ez_GT.real, 2, dim = (-1,-2))
+        relative_error_imag_Ez = torch.norm(imag_Ez_final.squeeze() - Ez_GT.imag, 2, dim = (-1,-2)) / torch.norm(Ez_GT.imag, 2, dim = (-1,-2))
         relative_error_T = torch.norm(T_final.squeeze() - T_GT, 2, dim = (-1,-2)) / torch.norm(T_GT, 2, dim = (-1,-2))  
         
 
         print(f'Relative error of mater: {relative_error_mater.detach().cpu().numpy().tolist()}')
-        print(f'Relative error of Ez: {relative_error_Ez.detach().cpu().numpy().tolist()}')
+        print(f'Relative error of real_Ez: {relative_error_real_Ez.detach().cpu().numpy().tolist()}')
+        print(f'Relative error of imag_Ez: {relative_error_imag_Ez.detach().cpu().numpy().tolist()}')
         print(f'Relative error of T: {relative_error_T.detach().cpu().numpy().tolist()}')
 
         error_mater_list.extend(relative_error_mater.detach().cpu().numpy().tolist())
-        error_Ez_list.extend(relative_error_Ez.detach().cpu().numpy().tolist())
+        error_Ez_list.extend(relative_error_real_Ez.detach().cpu().numpy().tolist())
+        error_Ez_list.extend(relative_error_imag_Ez.detach().cpu().numpy().tolist())
         error_T_list.extend(relative_error_T.detach().cpu().numpy().tolist())
 
         mater_final = mater_final.detach().cpu().numpy()

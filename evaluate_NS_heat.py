@@ -7,8 +7,8 @@ import torch
 def evaluate(result, GT_data):
     """
     输入:
-        result: dict，预测结果，包含 'mater', 'Ez_real', 'Ez_imag', 'T'
-        GT_data: dict，GT数据，包含 'mater_GT', 'real_Ez_GT', 'imag_Ez_GT', 'T_GT'
+        result: dict，预测结果，包含 'Q_heat', 'u_u', 'u_v', 'T'
+        GT_data: dict，GT数据，包含 'Q_heat_GT', 'u_u_GT', 'u_v_GT', 'T_GT'
     输出:
         res_dict: dict，包含 RMSE, nRMSE, MaxError, bRMSE, fRMSE 指标
     """
@@ -17,9 +17,9 @@ def evaluate(result, GT_data):
     }
 
     key_map = {
-        'mater': ('mater', 'mater_GT'),
-        'real_Ez': ('real_Ez', 'real_Ez_GT'),
-        'imag_Ez': ('imag_Ez', 'imag_Ez_GT'),
+        'Q_heat': ('Q_heat', 'Q_heat_GT'),
+        'u_u': ('u_u', 'u_u_GT'),
+        'u_v': ('u_v', 'u_v_GT'),
         'T': ('T', 'T_GT'),
     }
 
@@ -92,56 +92,57 @@ def evaluate(result, GT_data):
 
 
 # 主程序修改部分
-data_path = '/data/yangchangfan/DiffusionPDE/data/testing/TE_heat'
-results_path = '/home/yangchangfan/CODE/DiffusionPDE/TE_heat_result'
+data_path = '/data/yangchangfan/DiffusionPDE/data/testing/NS_heat'
+results_path = '/home/yangchangfan/CODE/DiffusionPDE/NS_heat_result'
 
 # 初始化存储所有结果的字典
 all_results = {
-    'RMSE': {'mater': [], 'real_Ez': [], 'imag_Ez': [], 'T': []},
-    'nRMSE': {'mater': [], 'real_Ez': [], 'imag_Ez': [], 'T': []},
-    'MaxError': {'mater': [], 'real_Ez': [], 'imag_Ez': [], 'T': []},
-    'bRMSE': {'mater': [], 'real_Ez': [], 'imag_Ez': [], 'T': []},
-    'fRMSE': {'mater': {'low': [], 'middle': [], 'high': []}, 
-              'real_Ez': {'low': [], 'middle': [], 'high': []},
-              'imag_Ez': {'low': [], 'middle': [], 'high': []},
+    'RMSE': {'Q_heat': [], 'u_u': [], 'u_v': [], 'T': []},
+    'nRMSE': {'Q_heat': [], 'u_u': [], 'u_v': [], 'T': []},
+    'MaxError': {'Q_heat': [], 'u_u': [], 'u_v': [], 'T': []},
+    'bRMSE': {'Q_heat': [], 'u_u': [], 'u_v': [], 'T': []},
+    'fRMSE': {'Q_heat': {'low': [], 'middle': [], 'high': []}, 
+              'u_u': {'low': [], 'middle': [], 'high': []},
+              'u_v': {'low': [], 'middle': [], 'high': []},
               'T': {'low': [], 'middle': [], 'high': []}}
 }
 
-offset_range=[30001, 30101]
+offset_range=[10001, 10101]
 for idx in range(offset_range[0], offset_range[1]):
     try:
         # 加载预测结果
-        pred = sio.loadmat(f'{results_path}/TE_heat_results_{idx}.mat')
-        mater = pred['mater']
-        complex_Ez = pred['Ez']
+        pred = sio.loadmat(f'{results_path}/NS_heat_results_{idx}.mat')
+        Q_heat = pred['Q_heat']
+        u_u = pred['u_u']
+        u_v = pred['u_v']
         
-        TE_heat_results = {
-            'mater': mater,
-            'real_Ez': complex_Ez.real,
-            'imag_Ez': complex_Ez.imag,
+        NS_heat_results = {
+            'Q_heat': Q_heat,
+            'u_u': u_u,
+            'u_v': u_v,
             'T': pred['T']
         }
 
         # 加载GT数据
-        TE_heat_GT = {
-            'mater_GT': sio.loadmat(f'{data_path}/mater/{idx}.mat')['mater'],
-            'real_Ez_GT': sio.loadmat(f'{data_path}/Ez/{idx}.mat')['export_Ez'].real,
-            'imag_Ez_GT': sio.loadmat(f'{data_path}/Ez/{idx}.mat')['export_Ez'].imag,
+        NS_heat_GT = {
+            'Q_heat_GT': sio.loadmat(f'{data_path}/Q_heat/{idx}.mat')['export_Q_heat'],
+            'u_u_GT': sio.loadmat(f'{data_path}/u_u/{idx}.mat')['export_u_u'],
+            'u_v_GT': sio.loadmat(f'{data_path}/u_v/{idx}.mat')['export_u_v'],
             'T_GT': sio.loadmat(f'{data_path}/T/{idx}.mat')['export_T']
         }
         np.set_printoptions(threshold=np.inf, linewidth=np.inf)
-        # print(TE_heat_GT['mater_GT'])
-        # print(TE_heat_results['mater'])
+        # print(NS_heat_GT['Q_heat_GT'])
+        # print(NS_heat_results['Q_heat'])
         # exit()
         # 评估当前数据
-        res_dict = evaluate(TE_heat_results, TE_heat_GT)
+        res_dict = evaluate(NS_heat_results, NS_heat_GT)
         
         # 保存所有结果
         for metric in ['RMSE', 'nRMSE', 'MaxError', 'bRMSE']:
-            for var in ['mater', 'real_Ez', 'imag_Ez', 'T']:
+            for var in ['Q_heat', 'u_u', 'u_v', 'T']:
                 all_results[metric][var].append(res_dict[metric][var])
         
-        for var in ['mater', 'real_Ez', 'imag_Ez', 'T']:
+        for var in ['Q_heat', 'u_u', 'u_v', 'T']:
             for band in ['low', 'middle', 'high']:
                 all_results['fRMSE'][var][band].append(res_dict['fRMSE'][var][band])
                 
@@ -156,11 +157,11 @@ avg_results = {
 
 # 计算普通指标的平均值
 for metric in ['RMSE', 'nRMSE', 'MaxError', 'bRMSE']:
-    for var in ['mater', 'real_Ez', 'imag_Ez', 'T']:
+    for var in ['Q_heat', 'u_u', 'u_v', 'T']:
         avg_results[metric][var] = np.mean(all_results[metric][var])
 
 # 计算fRMSE的平均值
-for var in ['mater', 'real_Ez', 'imag_Ez', 'T']:
+for var in ['Q_heat', 'u_u', 'u_v', 'T']:
     avg_results['fRMSE'][var] = {
         'low': np.mean(all_results['fRMSE'][var]['low']),
         'middle': np.mean(all_results['fRMSE'][var]['middle']),
@@ -170,9 +171,9 @@ for var in ['mater', 'real_Ez', 'imag_Ez', 'T']:
 import logging
 from datetime import datetime
 
-log_dir = "TE_heat_result"
+log_dir = "NS_heat_result"
 os.makedirs(log_dir, exist_ok=True)  # 自动创建目录（如果不存在）
-log_file = os.path.join(log_dir, "evaluate_TE_heat.log")
+log_file = os.path.join(log_dir, "evaluate_NS_heat.log")
 
 logging.basicConfig(
     filename=log_file,

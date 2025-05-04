@@ -50,7 +50,7 @@ torchrun --standalone --nproc_per_node=3 train.py --outdir=pretrained-darcy-new 
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
 # TE_heat_3k
-CUDA_VISIBLE_DEVICES=1,2,3,4,5,6,7 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_3k/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat_3k-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=3 --ema=0.05
+CUDA_VISIBLE_DEVICES=0,2,3,4,5,6,7 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_3k/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat_3k-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=3 --ema=0.05
 
 # TE_heat_3w
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 torchrun --standalone --nproc_per_node=8 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_3w/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat_3w-merged/ --cond=0 --arch=ddpmpp --batch=96 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=30 --ema=0.05
@@ -80,10 +80,10 @@ CUDA_VISIBLE_DEVICES=0 torchrun --standalone --nproc_per_node=1 train.py --outdi
 To solve the forward problem with sparse observation on the coefficient (or initial state) space, use, e.g.,
 # TE_heat
 ```python
-CUDA_VISIBLE_DEVICES=1 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/TE_heat.yaml
+CUDA_VISIBLE_DEVICES=0 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/TE_heat.yaml
 ```
 # NS_heat
-CUDA_VISIBLE_DEVICES=6 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/NS_heat.yaml
+CUDA_VISIBLE_DEVICES=1 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/NS_heat.yaml
 
 # MHD
 CUDA_VISIBLE_DEVICES=7 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/MHD.yaml

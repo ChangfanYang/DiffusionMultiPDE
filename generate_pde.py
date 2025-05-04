@@ -1,11 +1,18 @@
 import yaml
 from argparse import ArgumentParser
 from scripts import generate_burgers, generate_darcy, generate_poisson, generate_helmholtz, generate_ns_nonbounded, generate_ns_bounded, generate_TE_heat_validate, generate_TE_heat, generate_NS_heat, generate_MHD, generate_E_flow, generate_VA, generate_Elder
+import sys
 
 if __name__ == "__main__":
+    arg = sys.argv  # 接收参数
+
     parser = ArgumentParser(description='Generate PDE file')
     parser.add_argument('--config', type=str, help='Path to config file')
+    # parser.add_argument('--start', type=int, required=True)
+    # parser.add_argument('--end', type=int, required=True)
     options = parser.parse_args()
+
+
     config_path = options.config
     with open(config_path, 'r') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -30,11 +37,9 @@ if __name__ == "__main__":
         generate_ns_bounded(config)
     elif name == 'TE_heat':
         print('Solving TE_heat equation...')
+        # generate_TE_heat(config, options.start, options.end)
         generate_TE_heat(config)
         # generate_TE_heat_validate(config)
-    elif name == 'TE_heat_3k':
-        print('Solving TE_heat_3k equation...')
-        generate_TE_heat_3k(config)
 
     elif name == 'NS_heat':
         print('Solving NS_heat equation...')

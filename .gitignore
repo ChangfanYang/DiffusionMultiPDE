@@ -11,6 +11,6 @@ pretrained-TE_heat_3k/
 TE_heat_result/
 TE_heat_result_3k/
 
-NS_heat_result
+NS_heat_result/
 
 DiffusionPDE.tar.gz

@@ -2,7 +2,7 @@ data:
   name: 'TE_heat'
   datapath: '/data/yangchangfan/DiffusionPDE/data/testing/TE_heat'
   offset: 
-    - 30001
+    - 10001
 
 
 test:
