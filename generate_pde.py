@@ -1,6 +1,6 @@
 import yaml
 from argparse import ArgumentParser
-from scripts import generate_burgers, generate_darcy, generate_poisson, generate_helmholtz, generate_ns_nonbounded, generate_ns_bounded, generate_TE_heat_validate, generate_TE_heat, generate_NS_heat, generate_MHD, generate_E_flow, generate_VA, generate_Elder, generate_TE_heat_3k
+from scripts import generate_burgers, generate_darcy, generate_poisson, generate_helmholtz, generate_ns_nonbounded, generate_ns_bounded, generate_TE_heat_validate, generate_TE_heat, generate_NS_heat, generate_MHD, generate_E_flow, generate_VA, generate_Elder
 
 if __name__ == "__main__":
     parser = ArgumentParser(description='Generate PDE file')

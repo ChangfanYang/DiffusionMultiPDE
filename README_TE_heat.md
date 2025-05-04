@@ -83,7 +83,7 @@ To solve the forward problem with sparse observation on the coefficient (or init
 CUDA_VISIBLE_DEVICES=1 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/TE_heat.yaml
 ```
 # NS_heat
-CUDA_VISIBLE_DEVICES=3 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/NS_heat.yaml
+CUDA_VISIBLE_DEVICES=6 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/NS_heat.yaml
 
 # MHD
 CUDA_VISIBLE_DEVICES=7 /home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/yangchangfan/CODE/DiffusionPDE/generate_pde.py --config /home/yangchangfan/CODE/DiffusionPDE/configs/MHD.yaml

@@ -1,11 +1,15 @@
 import os
 import scipy.io as sio
+import matplotlib
+matplotlib.use('AGG')  # 设置后端为 AGG
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
 # 加载数据
-NS_heat_results = sio.loadmat("/home/yangchangfan/CODE/DiffusionPDE/NS_heat_results.mat")
+# NS_heat_results = sio.loadmat("/home/yangchangfan/CODE/DiffusionPDE/NS_heat_results.mat")
+NS_heat_results = sio.loadmat("/home/yangchangfan/CODE/DiffusionPDE/NS_heat_result/NS_heat_results_10001.mat")
+
 Q_heat = NS_heat_results['Q_heat']
 u_u = NS_heat_results['u_u']
 u_v = NS_heat_results['u_v']
