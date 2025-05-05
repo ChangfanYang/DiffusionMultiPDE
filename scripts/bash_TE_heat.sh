@@ -11,11 +11,11 @@ PYTHON_SCRIPT="/home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/
 
 # 配置参数（你可以根据需要修改这些值）
 START_ID=10001
-END_ID=10200
+END_ID=11000
 BATCH_SIZE=40      # 每个子任务处理多少个样本
 # GPUS=(1 3 2 4)      # 使用的 GPU 编号（可以是任意顺序）
-GPUS=(0,2,1)      # 使用的 GPU 编号（可以是任意顺序）
-# PER_GPU_JOBS=2      # 每张 GPU 并行运行的任务数
+GPUS=(0 1 2 3 4 5)      # 使用的 GPU 编号（可以是任意顺序）
+gpu_count=6
 
 
 # 计算总样本数和任务数
@@ -41,7 +41,6 @@ echo "总共生成了 $TOTAL_TASKS 个任务，每个任务处理最多 $BATCH_S
 # 构建任务分配表
 TASK_ASSIGNMENTS=()
 
-gpu_count=${#GPUS[@]}
 gpu_index=0
 job_per_gpu=0
 
@@ -49,8 +48,12 @@ for task in "${JOBS[@]}"; do
     gpu_idx=$((gpu_index % gpu_count))
     gpu_id=${GPUS[$gpu_idx]}
 
+    gpu_index=$(($gpu_index+1))
+
     TASK_ASSIGNMENTS+=("$gpu_id $task")
 done
+
+
 
 # 输出调试信息（可注释掉）
 printf "%s\n" "${TASK_ASSIGNMENTS[@]}" | nl

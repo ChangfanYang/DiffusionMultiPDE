@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Test TE_heat",
+            "name": "Python: Test TE",
             "type": "debugpy",
             "request": "launch",
             "program": "/home/yangchangfan/CODE/DiffusionPDE/generate_pde.py",

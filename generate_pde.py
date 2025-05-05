@@ -8,8 +8,8 @@ if __name__ == "__main__":
 
     parser = ArgumentParser(description='Generate PDE file')
     parser.add_argument('--config', type=str, help='Path to config file')
-    # parser.add_argument('--start', type=int, required=True)
-    # parser.add_argument('--end', type=int, required=True)
+    parser.add_argument('--start', type=int, required=True)
+    parser.add_argument('--end', type=int, required=True)
     options = parser.parse_args()
 
 
@@ -37,8 +37,8 @@ if __name__ == "__main__":
         generate_ns_bounded(config)
     elif name == 'TE_heat':
         print('Solving TE_heat equation...')
-        # generate_TE_heat(config, options.start, options.end)
-        generate_TE_heat(config)
+        generate_TE_heat(config, options.start, options.end)
+        # generate_TE_heat(config)
         # generate_TE_heat_validate(config)
 
     elif name == 'NS_heat':

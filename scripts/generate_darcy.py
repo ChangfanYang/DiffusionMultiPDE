@@ -121,9 +121,16 @@ def generate_darcy(config):
             x_next = x_next - zeta_obs_a * grad_x_cur_obs_a - zeta_obs_u * grad_x_cur_obs_u
             norm_value = torch.norm(zeta_obs_a * grad_x_cur_obs_a).item()
             print(norm_value)
+            norm_value = torch.norm(zeta_obs_u * grad_x_cur_obs_u).item()
+            print(norm_value)
         else:
             x_next = x_next - 0.1 * (zeta_obs_a * grad_x_cur_obs_a + zeta_obs_u * grad_x_cur_obs_u) - zeta_pde * grad_x_cur_pde
-    
+            norm_value = torch.norm(zeta_obs_a * grad_x_cur_obs_a).item()
+            print(norm_value)
+            norm_value = torch.norm(zeta_obs_u * grad_x_cur_obs_u).item()
+            print(norm_value)
+            norm_value = torch.norm(zeta_pde * grad_x_cur_pde).item()
+            print(norm_value)
     ############################ Save the data ############################
     x_final = x_next
     a_final = x_final[:,0,:,:].unsqueeze(0)
