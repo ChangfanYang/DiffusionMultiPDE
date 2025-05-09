@@ -93,7 +93,8 @@ def evaluate(result, GT_data):
 
 # 主程序修改部分
 data_path = '/data/yangchangfan/DiffusionPDE/data/testing/TE_heat'
-results_path = '/home/yangchangfan/CODE/DiffusionPDE/TE_heat_result/'
+# data_path = '/data/yangchangfan/DiffusionPDE/data/training/TE_heat/'
+results_path = '/home/yangchangfan/CODE/DiffusionPDE/TE_heat_result'
 
 # 初始化存储所有结果的字典
 all_results = {
@@ -107,11 +108,11 @@ all_results = {
               'T': {'low': [], 'middle': [], 'high': []}}
 }
 
-offset_range=[10001, 10003]
+offset_range=[10001, 11001]
 for idx in range(offset_range[0], offset_range[1]):
     try:
         # 加载预测结果
-        pred = sio.loadmat(f'{results_path}/TE_heat_results_{idx}.mat')
+        pred = sio.loadmat(os.path.join(results_path, f'TE_heat_results_{idx}.mat'))
         mater = pred['mater']
         complex_Ez = pred['Ez']
         

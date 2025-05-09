@@ -13,6 +13,8 @@ import pandas as pd
 
 import numpy as np
 from shapely.geometry import Polygon, Point
+import matplotlib
+matplotlib.use('AGG')  # 设置后端为 AGG
 import matplotlib.pyplot as plt
 
 
@@ -32,11 +34,11 @@ def random_index(k, grid_size, seed=0, device=torch.device('cuda')):
 def get_MHD_loss(Br, Jx, Jy, Jz, u_u, u_v, Br_GT, Jx_GT, Jy_GT, Jz_GT, u_u_GT, u_v_GT, Br_mask, Jx_mask, Jy_mask, Jz_mask, u_u_mask, u_v_mask, device=torch.device('cuda')):
     """Return the loss of the MHD equation and the observation loss."""
 
-    delta_x = 1e-2 # 1cm
-    delta_y = 1e-2 # 1cm
+    delta_x = 8e-2/128 # 1cm
+    delta_y = 2.75e-2/128 # 1cm
     
-    deriv_x = torch.tensor([[1, 0, -1]], dtype=torch.float64, device=device).view(1, 1, 1, 3) / (2 * delta_x)
-    deriv_y = torch.tensor([[1], [0], [-1]], dtype=torch.float64, device=device).view(1, 1, 3, 1) / (2 * delta_y)
+    deriv_x = torch.tensor([[-1, 0, 1]], dtype=torch.float64, device=device).view(1, 1, 1, 3) / (2 * delta_x)
+    deriv_y = torch.tensor([[-1], [0], [1]], dtype=torch.float64, device=device).view(1, 1, 3, 1) / (2 * delta_y)
 
     # Continuity_NS
     grad_x_next_x_NS = F.conv2d(u_u, deriv_x, padding=(0, 1))
@@ -57,6 +59,12 @@ def get_MHD_loss(Br, Jx, Jy, Jz, u_u, u_v, Br_GT, Jx_GT, Jy_GT, Jz_GT, u_u_GT, u
     pde_loss_NS = pde_loss_NS/100
     pde_loss_J = pde_loss_J/100
 
+    pde_loss_NS[0, :] = 0
+    pde_loss_NS[-1, :] = 0
+    pde_loss_NS[:, 0] = 0
+    pde_loss_NS[:, -1] = 0
+
+    pde_loss_J[(pde_loss_J > 5) | (pde_loss_J < -5)] = 0
 
     # scipy.io.savemat('test_rho.mat', {'rho': rho.cpu().detach().numpy()})
     # scipy.io.savemat('test_Crho.mat', {'Crho': Crho.cpu().detach().numpy()})
@@ -178,5 +186,5 @@ plt.colorbar()
 plt.title('PDE Loss for J')
 plt.xlabel('X-axis')
 plt.ylabel('Y-axis')
-plt.savefig('MHD_loss_heat.png')  # 保存为 PNG 文件
+plt.savefig('MHD_loss_J.png')  # 保存为 PNG 文件
 

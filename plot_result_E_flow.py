@@ -1,5 +1,7 @@
 import os
 import scipy.io as sio
+import matplotlib
+matplotlib.use('AGG')  # 设置后端为 AGG
 import matplotlib.pyplot as plt
 import numpy as np
 import torch

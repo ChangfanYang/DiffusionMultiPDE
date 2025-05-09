@@ -12,10 +12,10 @@ PYTHON_SCRIPT="/home/yangchangfan/anaconda3/envs/DiffusionPDE/bin/python3 /home/
 # 配置参数（你可以根据需要修改这些值）
 START_ID=10001
 END_ID=11000
-BATCH_SIZE=40      # 每个子任务处理多少个样本
+BATCH_SIZE=125      # 每个子任务处理多少个样本
 # GPUS=(1 3 2 4)      # 使用的 GPU 编号（可以是任意顺序）
-GPUS=(0 1 2 3 4 5)      # 使用的 GPU 编号（可以是任意顺序）
-gpu_count=6
+GPUS=(0 1 2 3 4 5 6 7)       # 使用的 GPU 编号（可以是任意顺序）
+gpu_count=8
 
 
 # 计算总样本数和任务数

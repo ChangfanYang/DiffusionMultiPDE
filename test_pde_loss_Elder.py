@@ -13,6 +13,8 @@ import pandas as pd
 from scipy.io import loadmat
 import numpy as np
 from shapely.geometry import Polygon, Point
+import matplotlib
+matplotlib.use('AGG')  # 设置后端为 AGG
 import matplotlib.pyplot as plt
 
 

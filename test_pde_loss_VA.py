@@ -13,6 +13,8 @@ import pandas as pd
 
 import numpy as np
 from shapely.geometry import Polygon, Point
+import matplotlib
+matplotlib.use('AGG')  # 设置后端为 AGG
 import matplotlib.pyplot as plt
 
 
@@ -73,29 +75,32 @@ def get_VA_loss(rho_water, p_t, Sxx, Sxy, Syy, x_u, x_v, rho_water_GT, p_t_GT, S
     # Continuity_structure real_x imag_x
     grad_x_next_x_Sxx_real = F.conv2d(Sxx_real, deriv_x, padding=(0, 1))
     grad_x_next_y_Sxy_real = F.conv2d(Sxy_real, deriv_y, padding=(1, 0))
-    result_structure_real_x = grad_x_next_x_Sxx_real + grad_x_next_y_Sxy_real + rho_Aluminum * omega**2 * x_u_real
-    
+    # result_structure_real_x = grad_x_next_x_Sxx_real + grad_x_next_y_Sxy_real + rho_Aluminum * omega**2 * x_u_real
+    result_structure_real_x = grad_x_next_x_Sxx_real + grad_x_next_y_Sxy_real + x_u_real
+
     grad_x_next_x_Sxx_imag = F.conv2d(Sxx_imag, deriv_x, padding=(0, 1))
     grad_x_next_y_Sxy_imag = F.conv2d(Sxy_imag, deriv_y, padding=(1, 0))
-    result_structure_imag_x = grad_x_next_x_Sxx_imag + grad_x_next_y_Sxy_imag + rho_Aluminum * omega**2 * x_u_imag
+    # result_structure_imag_x = grad_x_next_x_Sxx_imag + grad_x_next_y_Sxy_imag + rho_Aluminum * omega**2 * x_u_imag
+    result_structure_imag_x = grad_x_next_x_Sxx_imag + grad_x_next_y_Sxy_imag + x_u_imag
 
     # Continuity_structure real_y imag_y
     grad_x_next_x_Sxy_real = F.conv2d(Sxy_real, deriv_x, padding=(0, 1))
     grad_x_next_y_Syy_real = F.conv2d(Syy_real, deriv_y, padding=(1, 0))
-    result_structure_real_y = grad_x_next_x_Sxy_real + grad_x_next_y_Syy_real + rho_Aluminum * omega**2 * x_v_real
+    # result_structure_real_y = grad_x_next_x_Sxy_real + grad_x_next_y_Syy_real + rho_Aluminum * omega**2 * x_v_real
+    result_structure_real_y = grad_x_next_x_Sxy_real + grad_x_next_y_Syy_real + x_v_real
 
     grad_x_next_x_Sxy_imag = F.conv2d(Sxy_imag, deriv_x, padding=(0, 1))
     grad_x_next_y_Syy_imag = F.conv2d(Syy_imag, deriv_y, padding=(1, 0))
-    result_structure_imag_y = grad_x_next_x_Sxy_imag + grad_x_next_y_Syy_imag + rho_Aluminum * omega**2 * x_v_imag
+    # result_structure_imag_y = grad_x_next_x_Sxy_imag + grad_x_next_y_Syy_imag + rho_Aluminum * omega**2 * x_v_imag
+    result_structure_imag_y = grad_x_next_x_Sxy_imag + grad_x_next_y_Syy_imag + x_v_imag
 
-
-    scipy.io.savemat('grad_x_next_x_Sxx_real.mat', {'grad_x_next_x_Sxx_real': grad_x_next_x_Sxx_real.cpu().detach().numpy()})
-    scipy.io.savemat('grad_x_next_y_Sxy_real.mat', {'grad_x_next_y_Sxy_real': grad_x_next_y_Sxy_real.cpu().detach().numpy()})
+    # scipy.io.savemat('grad_x_next_x_Sxx_real.mat', {'grad_x_next_x_Sxx_real': grad_x_next_x_Sxx_real.cpu().detach().numpy()})
+    # scipy.io.savemat('grad_x_next_y_Sxy_real.mat', {'grad_x_next_y_Sxy_real': grad_x_next_y_Sxy_real.cpu().detach().numpy()})
     # scipy.io.savemat('result_part_real.mat', {'result_part_real': result_part_real.cpu().detach().numpy()})
     # scipy.io.savemat('x_u_real.mat', {'x_u_real': x_u_real.cpu().detach().numpy()})
     # scipy.io.savemat('x_u_imag.mat', {'x_u_imag': x_u_imag.cpu().detach().numpy()})
-    scipy.io.savemat('x_u_real.mat', {'x_u_real': x_u_real.cpu().detach().numpy()})
-    scipy.io.savemat('Sxx_real.mat', {'Sxx_real': Sxx_real.cpu().detach().numpy()})
+    # scipy.io.savemat('x_u_real.mat', {'x_u_real': x_u_real.cpu().detach().numpy()})
+    # scipy.io.savemat('Sxx_real.mat', {'Sxx_real': Sxx_real.cpu().detach().numpy()})
 
     pde_loss_AC_real = result_AC_real
     pde_loss_AC_imag = result_AC_imag
@@ -153,7 +158,7 @@ def get_VA_loss(rho_water, p_t, Sxx, Sxy, Syy, x_u, x_v, rho_water_GT, p_t_GT, S
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 datapath = '/data/yangchangfan/DiffusionPDE/data/testing/VA'
-offset = 10002
+offset = 10001
 
 rho_water_GT_path = os.path.join(datapath, "rho_water", f"{offset}.mat")
 rho_water_GT = sio.loadmat(rho_water_GT_path)['export_rho_water']

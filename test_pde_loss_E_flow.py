@@ -13,6 +13,8 @@ import pandas as pd
 
 import numpy as np
 from shapely.geometry import Polygon, Point
+import matplotlib
+matplotlib.use('AGG')  # 设置后端为 AGG
 import matplotlib.pyplot as plt
 
 
@@ -32,11 +34,11 @@ def random_index(k, grid_size, seed=0, device=torch.device('cuda')):
 def get_E_flow_loss(kappa, ec_V, u_flow, v_flow, kappa_GT, ec_V_GT, u_flow_GT, v_flow_GT, kappa_mask, ec_V_mask, u_flow_mask, v_flow_mask, device=torch.device('cuda')):
     """Return the loss of the E_flow equation and the observation loss."""
 
-    delta_x = 1e-3 # 1mm
-    delta_y = 1e-3 # 1mm
+    delta_x = 1.28e-3/128 # 1mm
+    delta_y = 1.28e-3/128 # 1mm
     
-    deriv_x = torch.tensor([[1, 0, -1]], dtype=torch.float64, device=device).view(1, 1, 1, 3) / (2 * delta_x)
-    deriv_y = torch.tensor([[1], [0], [-1]], dtype=torch.float64, device=device).view(1, 1, 3, 1) / (2 * delta_y)
+    deriv_x = torch.tensor([[-1, 0, 1]], dtype=torch.float64, device=device).view(1, 1, 1, 3) / (2 * delta_x)
+    deriv_y = torch.tensor([[-1], [0], [1]], dtype=torch.float64, device=device).view(1, 1, 3, 1) / (2 * delta_y)
 
     # Continuity_NS
     grad_x_next_x_NS = F.conv2d(u_flow, deriv_x, padding=(0, 1))
@@ -61,6 +63,18 @@ def get_E_flow_loss(kappa, ec_V, u_flow, v_flow, kappa_GT, ec_V_GT, u_flow_GT, v
     pde_loss_NS = pde_loss_NS/1000
     pde_loss_J = pde_loss_J/1000000
 
+    pde_loss_NS[0, :] = 0
+    pde_loss_NS[-1, :] = 0
+    pde_loss_NS[:, 0] = 0
+    pde_loss_NS[:, -1] = 0
+
+    pde_loss_J[0, :] = 0
+    pde_loss_J[-1, :] = 0
+    pde_loss_J[:, 0] = 0
+    pde_loss_J[:, -1] = 0
+
+    pde_loss_J[(pde_loss_J > 0.5) | (pde_loss_J < -0.5)] = 0
+    pde_loss_NS[(pde_loss_NS > 0.05) | (pde_loss_NS < -0.05)] = 0
 
     # scipy.io.savemat('test_rho.mat', {'rho': rho.cpu().detach().numpy()})
     # scipy.io.savemat('test_Crho.mat', {'Crho': Crho.cpu().detach().numpy()})
@@ -159,5 +173,5 @@ plt.colorbar()
 plt.title('PDE Loss for J')
 plt.xlabel('X-axis')
 plt.ylabel('Y-axis')
-plt.savefig('E_flow_loss_heat.png')  # 保存为 PNG 文件
+plt.savefig('E_flow_loss_J.png')  # 保存为 PNG 文件
 

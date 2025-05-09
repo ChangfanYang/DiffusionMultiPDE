@@ -1,12 +1,13 @@
 data:
   name: 'TE_heat'
   datapath: '/data/yangchangfan/DiffusionPDE/data/testing/TE_heat'
+  # datapath: '/data/yangchangfan/DiffusionPDE/data/training/TE_heat/'
   offset: 
-    - 10015
+    - 10001
 
 
 test:
-  pre-trained: "/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat/00000--uncond-ddpmpp-edm-gpus7-batch84-fp32/network-snapshot-010000.pkl"
+  pre-trained: "/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_3w/00000--uncond-ddpmpp-edm-gpus8-batch96-fp32/network-snapshot-025704.pkl"
   iterations: 10
 
 generate:

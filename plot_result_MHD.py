@@ -1,11 +1,13 @@
 import os
 import scipy.io as sio
+import matplotlib
+matplotlib.use('AGG')  # 设置后端为 AGG
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
 # 加载数据
-MHD_results = sio.loadmat("/home/yangchangfan/CODE/DiffusionPDE/MHD_results.mat")
+MHD_results = sio.loadmat("/home/yangchangfan/CODE/DiffusionPDE/MHD_result/MHD_results_10001.mat")
 Br = MHD_results['Br']
 Jx = MHD_results['Jx']
 Jy = MHD_results['Jy']
@@ -54,7 +56,7 @@ variables = {
 
 # 绘制图像
 for col, (name, (data, gt_data, vmin, vmax)) in enumerate(variables.items()):
-    # 绘制预测结果
+    # 绘制预测结果 
     im_pred = axes[0, col].imshow(data, cmap='inferno', vmin=vmin, vmax=vmax)
     axes[0, col].set_title(f'{name}')
     axes[0, col].axis('off')

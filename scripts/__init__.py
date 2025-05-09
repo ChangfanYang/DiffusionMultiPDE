@@ -11,3 +11,4 @@ from .generate_MHD import generate_MHD
 from .generate_E_flow import generate_E_flow
 from .generate_VA import generate_VA
 from .generate_Elder import generate_Elder
+from .generate_TE_heat_sigl import generate_TE_heat_sigl

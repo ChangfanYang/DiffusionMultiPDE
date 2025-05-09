@@ -107,7 +107,7 @@ all_results = {
               'T': {'low': [], 'middle': [], 'high': []}}
 }
 
-offset_range=[10001, 10101]
+offset_range=[10001, 11001]
 for idx in range(offset_range[0], offset_range[1]):
     try:
         # 加载预测结果

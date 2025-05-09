@@ -1,5 +1,7 @@
 import os
 import scipy.io as sio
+import matplotlib
+matplotlib.use('AGG')  # 设置后端为 AGG
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -7,7 +9,7 @@ from scipy.io import loadmat
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # 加载数据
-Elder_results = sio.loadmat("/home/yangchangfan/CODE/DiffusionPDE/Elder_results.mat")
+Elder_results = sio.loadmat("/home/yangchangfan/CODE/DiffusionPDE/Elder_result/Elder_results_1002.mat")
 S_c = Elder_results['S_c']
 if S_c.ndim == 11:
     S_c = np.expand_dims(S_c, axis=0)
@@ -22,7 +24,7 @@ u_v = np.squeeze(u_v)
 c_flow = np.squeeze(c_flow)
 
 data_test_path = "/data/yangchangfan/DiffusionPDE/data/testing/Elder/"
-offset = 1001
+offset = 1002
 time_steps = 11
 C, H, W = 34, 128, 128
 
@@ -117,9 +119,9 @@ def calculate_relative_error(pred, gt):
     return torch.norm(pred - gt, 2) / torch.norm(gt, 2)
 
 relative_error_S_c = calculate_relative_error(S_c[0,:,:], S_c_GT[0,:,:])
-relative_error_u_u = calculate_relative_error(u_u[2,:,:], u_u_GT[2,:,:])
-relative_error_u_v = calculate_relative_error(u_v[2,:,:], u_v_GT[2,:,:])
-relative_error_c_flow = calculate_relative_error(c_flow[2,:,:], c_flow_GT[2,:,:])
+relative_error_u_u = calculate_relative_error(u_u[1,:,:], u_u_GT[1,:,:])
+relative_error_u_v = calculate_relative_error(u_v[1,:,:], u_v_GT[1,:,:])
+relative_error_c_flow = calculate_relative_error(c_flow[1,:,:], c_flow_GT[1,:,:])
 
 # 打印相对误差
 print(f'Relative error of S_c: {relative_error_S_c.item():.6e}')

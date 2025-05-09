@@ -8,8 +8,8 @@ data:
 
 
 test:
-  pre-trained: "/home/yangchangfan/CODE/DiffusionPDE/pretrained-Elder/00010--uncond-ddpmpp-edm-gpus8-batch96-fp32/network-snapshot-010000.pkl"
-  iterations: 1000
+  pre-trained: "/home/yangchangfan/CODE/DiffusionPDE/pretrained-Elder/00012--uncond-ddpmpp-edm-gpus5-batch60-fp32/network-snapshot-010000.pkl"
+  iterations: 10
 generate:
   seed: 0
   device: 'cuda'

@@ -12,6 +12,8 @@ import scipy.io as sio
 import pandas as pd
 import numpy as np
 import math
+import matplotlib
+matplotlib.use('AGG')  # 设置后端为 AGG
 import matplotlib.pyplot as plt
 
 
