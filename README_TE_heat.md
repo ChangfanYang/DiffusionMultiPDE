@@ -70,6 +70,11 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 trai
 # NS_heat
 CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 torchrun --standalone --nproc_per_node=6 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-NS_heat/ --data=/data/yangchangfan/DiffusionPDE/data/NS_heat-merged/ --cond=0 --arch=ddpmpp --batch=72 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
+
+# NS_heat_3k
+CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 torchrun --standalone --nproc_per_node=6 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-NS_heat_3k/ --data=/data/yangchangfan/DiffusionPDE/data/NS_heat_3k-merged/ --cond=0 --arch=ddpmpp --batch=72 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=3 --ema=0.05
+
+
 # MHD
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-MHD/ --data=/data/yangchangfan/DiffusionPDE/data/MHD-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
