@@ -5,47 +5,47 @@ import matplotlib.pyplot as plt
 import scipy.io
 import os
 
-# def load_ranges(base_path, variables):
-#     ranges = {}
+def load_ranges(base_path, variables):
+    ranges = {}
     
-#     # rho_water
-#     rho_data = scipy.io.loadmat(f"{base_path}/rho_water/range_allrho_water.mat")['range_allrho_water']
-#     ranges['rho_water'] = {'max': rho_data[0, 1], 'min': rho_data[0, 0]}
+    # rho_water
+    rho_data = scipy.io.loadmat(f"{base_path}/rho_water/range_allrho_water.mat")['range_allrho_water']
+    ranges['rho_water'] = {'max': rho_data[0, 1], 'min': rho_data[0, 0]}
     
-#     # 加载其他变量的范围
-#     for var in variables:
-#         real_data = scipy.io.loadmat(f"{base_path}/{var}/range_allreal_{var}.mat")[f'range_allreal_{var}']
-#         imag_data = scipy.io.loadmat(f"{base_path}/{var}/range_allimag_{var}.mat")[f'range_allimag_{var}']
+    # 加载其他变量的范围
+    for var in variables:
+        real_data = scipy.io.loadmat(f"{base_path}/{var}/range_allreal_{var}.mat")[f'range_allreal_{var}']
+        imag_data = scipy.io.loadmat(f"{base_path}/{var}/range_allimag_{var}.mat")[f'range_allimag_{var}']
         
-#         ranges[var] = {
-#             'max_real': real_data[0, 1],
-#             'min_real': real_data[0, 0],
-#             'max_imag': imag_data[0, 1],
-#             'min_imag': imag_data[0, 0]
-#         }
+        ranges[var] = {
+            'max_real': real_data[0, 1],
+            'min_real': real_data[0, 0],
+            'max_imag': imag_data[0, 1],
+            'min_imag': imag_data[0, 0]
+        }
     
-#     return ranges
+    return ranges
 
-# # 加载数据
-# data = np.load("/data/yangchangfan/DiffusionPDE/data/VA-merged/merge_1000.npy")
-# slice_9 = data[:, :, 9]
-# slice_11 = data[:, :, 11]
+# 加载数据
+data = np.load("/data/yangchangfan/DiffusionPDE/data/VA_wrong-merged/merge_2.npy")
+slice_9 = data[:, :, 9]
+slice_11 = data[:, :, 11]
 
-# slice_10 = data[:, :, 10]
-# slice_12 = data[:, :, 12]
+slice_10 = data[:, :, 10]
+slice_12 = data[:, :, 12]
 
-# base_path = "/data/yangchangfan/DiffusionPDE/data/training/VA"
-# variables = ['p_t', 'Sxx', 'Sxy', 'Syy', 'x_u', 'x_v']
+base_path = "/data/yangchangfan/DiffusionPDE/data/training/VA"
+variables = ['p_t', 'Sxx', 'Sxy', 'Syy', 'x_u', 'x_v']
 
-# data_path = "/data/yangchangfan/DiffusionPDE/data/training/VA/"
-# range_data = load_ranges(base_path, variables)
-
-
-# # print(range_data['x_u']['max_real'])
-# # print(range_data['x_u']['min_real'])
+data_path = "/data/yangchangfan/DiffusionPDE/data/training/VA"
+range_data = load_ranges(base_path, variables)
 
 
-# # 数据归一化
+# print(range_data['x_u']['max_real'])
+# print(range_data['x_u']['min_real'])
+
+
+# 数据归一化
 # slice_9 = ((slice_9 + 0.9) / 1.8 * (range_data['x_u']['max_real'] - range_data['x_u']['min_real']) + range_data['x_u']['min_real'])
 # slice_11 = ((slice_11 + 0.9) / 1.8 * (range_data['x_v']['max_real'] - range_data['x_v']['min_real']) + range_data['x_v']['min_real'])
 
@@ -54,8 +54,13 @@ import os
 # slice_12 = ((slice_12 + 0.9) / 1.8 * (range_data['x_v']['max_imag'] - range_data['x_v']['min_imag']) + range_data['x_v']['min_imag'])
 
 # # 加载 GT 数据
-# x_u_GT = scipy.io.loadmat(os.path.join(data_path, 'x_u', f'{1000}.mat'))['export_x_u']
-# x_v_GT = scipy.io.loadmat(os.path.join(data_path, 'x_v', f'{1000}.mat'))['export_x_v']
+# omega = np.pi*1e5
+# rho_AL=2730
+
+# x_u_GT = scipy.io.loadmat(os.path.join(data_path, 'x_u', f'{2}.mat'))['export_x_u']
+# x_v_GT = scipy.io.loadmat(os.path.join(data_path, 'x_v', f'{2}.mat'))['export_x_v']
+# x_u_GT = x_u_GT /(omega**2 * rho_AL)
+# x_v_GT = x_v_GT /(omega**2 * rho_AL)
 
 # vmin_x_u = x_u_GT.real.min()
 # vmax_x_u = x_u_GT.real.max()
@@ -67,15 +72,15 @@ import os
 # plt.figure(figsize=(20, 10))
 
 # # 第一张子图（data[:, :, 9]）
-# plt.subplot(2, 2, 1)  # 2行2列，第1个位置
-# plt.imshow(slice_9, cmap='inferno',vmin=vmin_x_u,vmax=vmax_x_u)
+# plt.subplot(2, 2, 1)  # 2行2列，第1个位置 ,vmin=vmin_x_u,vmax=vmax_x_u
+# plt.imshow(slice_9, cmap='inferno')
 # plt.colorbar()
 # plt.title("Slice at index 9")
 # plt.axis('off')
 
 # # 第二张子图（data[:, :, 11]）
-# plt.subplot(2, 2, 2)  # 2行2列，第2个位置
-# plt.imshow(slice_11, cmap='inferno',vmin=vmin_x_v,vmax=vmax_x_v)
+# plt.subplot(2, 2, 2)  # 2行2列，第2个位置  ,vmin=vmin_x_v,vmax=vmax_x_v
+# plt.imshow(slice_11, cmap='inferno')
 # plt.colorbar()
 # plt.title("Slice at index 11")
 # plt.axis('off')
@@ -148,13 +153,13 @@ import os
 
 
 
-# # 打印数组的内容（可选）
-# # print("Content of 'a':", a)
-# # print("Content of 't':", t)
-# # print("Content of 'u':", u)
+# 打印数组的内容（可选）
+# print("Content of 'a':", a)
+# print("Content of 't':", t)
+# print("Content of 'u':", u)
 
 
-data_Elder = np.load("/data/yangchangfan/DiffusionPDE/data/Elder-merged/merge_5.npy")
+data_Elder = np.load("/data/yangchangfan/DiffusionPDE/data/Elder_wrong-merged/merge_2.npy")
 
 print(data_Elder.shape)
 # exit()
@@ -170,7 +175,7 @@ channels = [0, 1, 12, 23]
 # channels = [0, 7, 18, 29]
 # channels = [0, 8, 19, 30]
 # channels = [0, 9, 20, 31]
-# channels = [0, 10, 21, 32]
+channels = [0, 10, 21, 32]
 # channels = [0, 11, 22, 33]
 
 # 绘制子图

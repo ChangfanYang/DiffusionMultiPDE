@@ -23,6 +23,9 @@ def evaluate(result, GT_data):
         'T': ('T', 'T_GT'),
     }
 
+    for key in key_map:
+        res_dict['fRMSE'][key] = {}
+
     for var_name, (pred_key, gt_key) in key_map.items():
         # 直接转换为 tensor
         pred = result[pred_key] if isinstance(result[pred_key], torch.Tensor) else torch.tensor(result[pred_key], dtype=torch.float32)
@@ -58,35 +61,75 @@ def evaluate(result, GT_data):
         brmse = torch.sqrt(torch.mean((pred_b - gt_b) ** 2)).item()
         res_dict['bRMSE'][var_name] = brmse
 
-        # fRMSE（频率段误差）
+
+
+        # # fRMSE（频率段误差）
+        # freq_bands = {
+        #     'low': (0, 4),
+        #     'middle': (5, 12),
+        #     'high': (13, None),
+        # }
+
+        # pred_fft = torch.fft.fft2(pred)
+        # gt_fft = torch.fft.fft2(gt)
+        # H, W = pred.shape[-2:]
+
+        # # 计算频率图像中的径向波数
+        # kx = torch.fft.fftfreq(H, d=1).to(pred.device).reshape(-1, 1).expand(H, W)
+        # ky = torch.fft.fftfreq(W, d=1).to(pred.device).reshape(1, -1).expand(H, W)
+        # radius = torch.sqrt(kx ** 2 + ky ** 2) * max(H, W)
+
+        # fRMSE_var = {}
+        # for band, (k_min, k_max) in freq_bands.items():
+        #     if k_max is None:
+        #         mask = (radius >= k_min)
+        #         k_max = max(H // 2, W // 2)
+        #     else:
+        #         mask = (radius >= k_min) & (radius <= k_max)
+
+        #     diff_fft = torch.abs(pred_fft - gt_fft) ** 2
+        #     band_error = diff_fft[mask].mean().sqrt()
+        #     fRMSE_var[band] = band_error.item()
+        # res_dict['fRMSE'][var_name] = fRMSE_var
+
+
+
+        pred = pred.unsqueeze(0)
+        gt = gt.unsqueeze(0)
         freq_bands = {
-            'low': (0, 4),
-            'middle': (5, 12),
-            'high': (13, None),
+            'low': (0, 4),  # k_min=0, k_max=4
+            'middle': (5, 12),  # k_min=5, k_max=12
+            'high': (13, None)  # k_min=13, k_max=∞ (实际取Nyquist频率)
         }
+        def compute_band_fft(pred_fft, true_fft, k_min, k_max, H, W):
+            """计算指定频段的fRMSE"""
+            # 生成频段掩码
+            kx = torch.arange(H, device=pred_fft.device)
+            ky = torch.arange(W, device=pred_fft.device)
+            kx, ky = torch.meshgrid(kx, ky, indexing='ij')
 
-        pred_fft = torch.fft.fft2(pred)
-        gt_fft = torch.fft.fft2(gt)
-        H, W = pred.shape[-2:]
-
-        # 计算频率图像中的径向波数
-        kx = torch.fft.fftfreq(H, d=1).to(pred.device).reshape(-1, 1).expand(H, W)
-        ky = torch.fft.fftfreq(W, d=1).to(pred.device).reshape(1, -1).expand(H, W)
-        radius = torch.sqrt(kx ** 2 + ky ** 2) * max(H, W)
-
-        fRMSE_var = {}
-        for band, (k_min, k_max) in freq_bands.items():
+            # 计算径向波数 (避免重复计算0和Nyquist频率)
+            r = torch.sqrt(kx ** 2 + ky ** 2)
             if k_max is None:
-                mask = (radius >= k_min)
-                k_max = max(H // 2, W // 2)
+                mask = (r >= k_min)
+                k_max = max(H // 2, W // 2) #nyquist
             else:
-                mask = (radius >= k_min) & (radius <= k_max)
+                mask = (r >= k_min) & (r <= k_max)
 
-            diff_fft = torch.abs(pred_fft - gt_fft) ** 2
-            band_error = diff_fft[mask].mean().sqrt()
-            fRMSE_var[band] = band_error.item()
+            # 计算误差
+            diff_fft = torch.abs(pred_fft - true_fft) ** 2
+            band_error = diff_fft[:, mask].sum(dim=1)  # 对空间维度
+            band_error = torch.sqrt(band_error) / (k_max - k_min + 1)
+            return band_error
+        # 傅里叶变换 (shift后低频在中心)
+        pred_fft = torch.fft.fft2(pred)
+        true_fft = torch.fft.fft2(gt)
+        H, W = pred.shape[-2], pred.shape[-1]
 
-        res_dict['fRMSE'][var_name] = fRMSE_var
+        # 计算各频段
+        for band, (k_min, k_max) in freq_bands.items():
+            error = compute_band_fft(pred_fft, true_fft, k_min, k_max, H, W)
+            res_dict['fRMSE'][f'{var_name}'][f'{band}'] = error.sum()
 
     return res_dict
 
@@ -108,7 +151,7 @@ all_results = {
               'T': {'low': [], 'middle': [], 'high': []}}
 }
 
-offset_range=[10001, 11001]
+offset_range=[10001, 10002]
 for idx in range(offset_range[0], offset_range[1]):
     try:
         # 加载预测结果

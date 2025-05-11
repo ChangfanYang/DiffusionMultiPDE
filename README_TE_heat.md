@@ -57,6 +57,13 @@ bash ./scripts/bash_Elder.sh
 # TE_heat_3k
 CUDA_VISIBLE_DEVICES=0,2,3,4,5,6,7 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_3k/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat_3k-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=3 --ema=0.05
 
+
+# TE_heat_1k
+CUDA_VISIBLE_DEVICES=0,2,3,4,5,6,7 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_1k/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat_1k-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=1 --ema=0.05
+
+# TE_heat_300
+CUDA_VISIBLE_DEVICES=0,2,3,4,5,6,7 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_300/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat_300-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=0.3 --ema=0.05
+
 # TE_heat_3k_sigl
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 torchrun --standalone --nproc_per_node=8 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_3k_sigl/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat_3k_sigl-merged/ --cond=0 --arch=ddpmpp --batch=96 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=3 --ema=0.05
 
