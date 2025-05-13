@@ -52,3 +52,6 @@ TE_heat_result_sigl/
 TE_heat_result_1w_mater_PDE_train/
 
 DiffusionPDE.tar.gz
+
+pretrained-TE_heat_sigl_E/
+pretrained-Elder_wrong/

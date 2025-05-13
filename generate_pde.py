@@ -1,6 +1,6 @@
 import yaml
 from argparse import ArgumentParser
-from scripts import generate_burgers, generate_darcy, generate_poisson, generate_helmholtz, generate_ns_nonbounded, generate_ns_bounded, generate_TE_heat_validate, generate_TE_heat, generate_TE_heat_sigl, generate_NS_heat, generate_MHD, generate_E_flow, generate_VA, generate_Elder
+from scripts import generate_burgers, generate_darcy, generate_poisson, generate_helmholtz, generate_ns_nonbounded, generate_ns_bounded, generate_TE_heat_validate, generate_TE_heat, generate_TE_heat_sigl, generate_TE_heat_sigl_onlyE, generate_NS_heat, generate_MHD, generate_E_flow, generate_VA, generate_Elder
 import sys
 
 if __name__ == "__main__":
@@ -37,8 +37,9 @@ if __name__ == "__main__":
         generate_ns_bounded(config)
     elif name == 'TE_heat':
         print('Solving TE_heat equation...')
-        generate_TE_heat(config, options.start, options.end)
+        # generate_TE_heat(config, options.start, options.end)
         # generate_TE_heat_sigl(config, options.start, options.end)
+        generate_TE_heat_sigl_onlyE(config, options.start, options.end)
         # generate_TE_heat(config)
         # generate_TE_heat_validate(config)
 

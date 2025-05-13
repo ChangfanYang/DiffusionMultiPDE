@@ -682,6 +682,8 @@ def generate_single_TE_heat(config, offset, net):
             scale_factor = 1 / norm_pde_T
             zeta_pde_T = zeta_pde_T * scale_factor
 
+            # zeta_pde_T = 0
+
             x_next = x_next - (zeta_pde_E * grad_x_cur_pde_E + zeta_pde_T * grad_x_cur_pde_T)
             
             # x_next = x_next

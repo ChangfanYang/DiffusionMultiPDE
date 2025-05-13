@@ -54,6 +54,8 @@ bash ./scripts/bash_NS_heat.sh
 bash ./scripts/bash_E_flow.sh
 bash ./scripts/bash_VA.sh
 bash ./scripts/bash_Elder.sh
+
+bash ./scripts/bash_TE_heat_sigl_onlyE.sh
 # TE_heat_3k
 CUDA_VISIBLE_DEVICES=0,2,3,4,5,6,7 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_3k/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat_3k-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=3 --ema=0.05
 
@@ -67,6 +69,8 @@ CUDA_VISIBLE_DEVICES=0,2,3,4,5,6,7 torchrun --standalone --nproc_per_node=7 trai
 # TE_heat_3k_sigl
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 torchrun --standalone --nproc_per_node=8 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_3k_sigl/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat_3k_sigl-merged/ --cond=0 --arch=ddpmpp --batch=96 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=3 --ema=0.05
 
+# TE_heat_sigl_E
+CUDA_VISIBLE_DEVICES=1,2,3,4,5,6,7 torchrun --standalone --nproc_per_node=7 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_sigl_E/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat_sigl_E-merged/ --cond=0 --arch=ddpmpp --batch=84 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
 # TE_heat_3w
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 torchrun --standalone --nproc_per_node=8 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_3w/ --data=/data/yangchangfan/DiffusionPDE/data/TE_heat_3w-merged/ --cond=0 --arch=ddpmpp --batch=96 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=30 --ema=0.05
@@ -91,11 +95,15 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 torchrun --standalone --nproc_per_node=7 trai
 # VA
 CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 torchrun --standalone --nproc_per_node=6 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-VA/ --data=/data/yangchangfan/DiffusionPDE/data/VA-merged/ --cond=0 --arch=ddpmpp --batch=72 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
+# VA_wrong
+CUDA_VISIBLE_DEVICES=3,4,5,6,7 torchrun --standalone --nproc_per_node=5 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-VA_wrong/ --data=/data/yangchangfan/DiffusionPDE/data/VA_wrong-merged/ --cond=0 --arch=ddpmpp --batch=60 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
 # Elder
 CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 torchrun --standalone --nproc_per_node=6 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-Elder/ --data=/data/yangchangfan/DiffusionPDE/data/Elder-merged/ --cond=0 --arch=ddpmpp --batch=72 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
-CUDA_VISIBLE_DEVICES=0 torchrun --standalone --nproc_per_node=1 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-Elder/ --data=/data/yangchangfan/DiffusionPDE/data/Elder-merged/ --cond=0 --arch=ddpmpp --batch=12 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
+# Elder_wrong
+CUDA_VISIBLE_DEVICES=0,1,2,3,5 torchrun --standalone --nproc_per_node=5 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-Elder_wrong/ --data=/data/yangchangfan/DiffusionPDE/data/Elder_wrong-merged/ --cond=0 --arch=ddpmpp --batch=60 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
+
 ## Solve Forward Problem
 
 To solve the forward problem with sparse observation on the coefficient (or initial state) space, use, e.g.,
