@@ -104,6 +104,9 @@ CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 torchrun --standalone --nproc_per_node=6 train.
 # Elder_wrong
 CUDA_VISIBLE_DEVICES=0,1,2,3,5 torchrun --standalone --nproc_per_node=5 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-Elder_wrong/ --data=/data/yangchangfan/DiffusionPDE/data/Elder_wrong-merged/ --cond=0 --arch=ddpmpp --batch=60 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
 
+# Elder_wrong_1
+CUDA_VISIBLE_DEVICES=7,6,5,4 torchrun --standalone --nproc_per_node=4 train.py --outdir=/home/yangchangfan/CODE/DiffusionPDE/pretrained-Elder_wrong_1/ --data=/data/yangchangfan/DiffusionPDE/data/Elder_wrong_1-merged/ --cond=0 --arch=ddpmpp --batch=48 --batch-gpu=12 --tick=10 --snap=50 --dump=100 --duration=10 --ema=0.05
+
 ## Solve Forward Problem
 
 To solve the forward problem with sparse observation on the coefficient (or initial state) space, use, e.g.,

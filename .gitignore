@@ -14,7 +14,7 @@ TE_heat_result_3k/
 NS_heat_result/
 
 TE_heat_result_mater/
-TE_heat_result_matet_PDE/
+TE_heat_result_mater_PDE/
 TE_heat_result_no_guidance/
 
 NS_heat_result_Qheat_PDE/
@@ -40,6 +40,9 @@ Elder_result_Sc_t0/
 Elder_result_Sc_t0_PDE/
 
 pretrained-TE_heat_3w/
+pretrained-TE_heat_1k/
+pretrained-TE_heat_300/
+
 TE_heat_result_3k_mater_PDE/
 TE_heat_result_1w_mater_PDE/
 TE_heat_result_3w_mater_PDE/
@@ -51,7 +54,16 @@ TE_heat_result_sigl/
 
 TE_heat_result_1w_mater_PDE_train/
 
+TE_heat_result_mater_PDE_noPDET/
+
+VA_result_wrong/
+TE_heat_result_300_mater_PDE/
+TE_heat_result_1k_mater_PDE/
+
 DiffusionPDE.tar.gz
 
 pretrained-TE_heat_sigl_E/
 pretrained-Elder_wrong/
+pretrained-VA_wrong/
+
+pretrained-Elder_wrong_1/

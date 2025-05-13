@@ -1,10 +1,12 @@
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.io import loadmat
 import os
 
 # === 路径配置 ===
-merged_file = "/data/yangchangfan/DiffusionPDE/data/Elder-merged/merge_1.npy"
+merged_file = "/data/yangchangfan/DiffusionPDE/data/Elder_wrong_1-merged/merge_1.npy"
 gt_base_path = "/data/yangchangfan/DiffusionPDE/data/training/Elder/"
 save_path = "test_merge_elder.png"
 

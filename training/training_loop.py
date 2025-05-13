@@ -41,9 +41,9 @@ def training_loop(
     kimg_per_tick       = 50,       # Interval of progress prints.
     snapshot_ticks      = 50,       # How often to save network snapshots, None = disable.
     state_dump_ticks    = 500,      # How often to dump training state, None = disable.
-    resume_pkl          = "/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_sigl_E/00001--uncond-ddpmpp-edm-gpus7-batch84-fp32/network-snapshot-003024.pkl",     # Start from the given network snapshot, None = random initialization.
-    resume_state_dump   = "/home/yangchangfan/CODE/DiffusionPDE/pretrained-TE_heat_sigl_E/00001--uncond-ddpmpp-edm-gpus7-batch84-fp32/training-state-003024.pt",     # Start from the given training state, None = reset training state.
-    resume_kimg         = 3024,        # Start from the given training progress.
+    resume_pkl          = None,     # Start from the given network snapshot, None = random initialization.
+    resume_state_dump   = None,     # Start from the given training state, None = reset training state.
+    resume_kimg         = 0,        # Start from the given training progress.
     cudnn_benchmark     = True,     # Enable torch.backends.cudnn.benchmark?
     device              = torch.device('cuda'),
 ):
